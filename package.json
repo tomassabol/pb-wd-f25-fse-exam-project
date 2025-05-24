@@ -1,0 +1,15 @@
+{
+  "name": "washworld",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "turbo": "^1.12.4"
+  },
+  "packageManager": "pnpm@8.15.4"
+}
