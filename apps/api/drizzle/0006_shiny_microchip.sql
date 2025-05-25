@@ -1,0 +1,1 @@
+ALTER TABLE "wash_type" ADD COLUMN "currency" text NOT NULL;

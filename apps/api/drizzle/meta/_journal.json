@@ -29,6 +29,27 @@
       "when": 1748190261202,
       "tag": "0003_dark_roulette",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1748194901645,
+      "tag": "0004_brief_domino",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1748195008523,
+      "tag": "0005_elite_white_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1748195154386,
+      "tag": "0006_shiny_microchip",
+      "breakpoints": true
     }
   ]
 }
