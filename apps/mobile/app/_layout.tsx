@@ -19,6 +19,7 @@ import { SplashScreen } from "expo-router";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { WashProvider } from "@/contexts/WashContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { LocationProvider } from "@/contexts/LocationContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Prevent splash screen from auto-hiding
@@ -54,20 +55,22 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <WashProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="(modals)"
-                options={{ presentation: "modal" }}
-              />
-              <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
-            </Stack>
-            <StatusBar style="auto" />
-          </WashProvider>
-        </AuthProvider>
+        <LocationProvider>
+          <AuthProvider>
+            <WashProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="(modals)"
+                  options={{ presentation: "modal" }}
+                />
+                <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
+              </Stack>
+              <StatusBar style="auto" />
+            </WashProvider>
+          </AuthProvider>
+        </LocationProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

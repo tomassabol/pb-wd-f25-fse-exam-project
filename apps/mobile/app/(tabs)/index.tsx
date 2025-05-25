@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,10 +23,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { COLORS } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
 import { useWash } from "@/hooks/useWash";
+import { useWashingStationsSuspenseQuery } from "@/hooks/washing-stations-hooks";
+import { useMembershipsSuspenseQuery } from "@/hooks/memberships-hooks";
 import { StationCard } from "@/components/stations/StationCard";
-import { WashTypeCard } from "@/components/wash/WashTypeCard";
-import { mockStations } from "@/data/mockStations";
-import { mockWashTypes } from "@/data/mockWashTypes";
+import { MembershipCard } from "@/components/membership/MembershipCard";
+import { transformWashingStationToStation } from "@/utils/stationTransform";
+import { Station } from "@/types/station";
+import { HomeScreenSkeleton } from "@/components/skeletons/HomeScreenSkeleton";
 
 const ActiveWashBar = () => {
   const { activeWash } = useWash();
@@ -44,13 +48,33 @@ const ActiveWashBar = () => {
   );
 };
 
-export default function HomeScreen() {
+function HomeScreenContent() {
   const { user } = useAuth();
   const { activeWash, detectLicensePlate } = useWash();
-  const [nearbyStations, setNearbyStations] = useState(
-    mockStations.slice(0, 3)
-  );
+  const { data: washingStations } = useWashingStationsSuspenseQuery({
+    isOpen: true,
+  });
+  const { data: memberships } = useMembershipsSuspenseQuery();
+  const [nearbyStations, setNearbyStations] = useState<Station[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
+
+  // Transform washing stations to Station format and get nearest 3
+  useEffect(() => {
+    if (washingStations) {
+      // For now, we'll use a mock user location (Copenhagen)
+      // In a real app, you'd get this from the user's actual location
+      const userLocation = { latitude: 55.6761, longitude: 12.5683 };
+
+      const transformedStations = washingStations
+        .map((station) =>
+          transformWashingStationToStation(station, userLocation)
+        )
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 3);
+
+      setNearbyStations(transformedStations);
+    }
+  }, [washingStations]);
 
   const handleStationPress = (stationId: string) => {
     router.push(`/station/${stationId}`);
@@ -164,46 +188,6 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Wash Packages</Text>
-            <TouchableOpacity onPress={() => router.push("/wash-packages")}>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
-
-          <FlatList
-            data={mockWashTypes}
-            renderItem={({ item }) => (
-              <WashTypeCard
-                washType={item}
-                onPress={() => router.push(`/wash-package/${item.id}`)}
-              />
-            )}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.washTypesContainer}
-          />
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Nearby Stations</Text>
-            <TouchableOpacity onPress={() => router.push("/stations")}>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
-
-          {nearbyStations.map((station) => (
-            <StationCard
-              key={station.id}
-              station={station}
-              onPress={() => handleStationPress(station.id)}
-            />
-          ))}
-        </View>
-
         {user?.recentWashes && user.recentWashes.length > 0 && (
           <View style={[styles.section, styles.lastSection]}>
             <View style={styles.sectionHeader}>
@@ -239,8 +223,58 @@ export default function HomeScreen() {
             ))}
           </View>
         )}
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Nearby Stations</Text>
+            <TouchableOpacity onPress={() => router.push("/stations")}>
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
+
+          {nearbyStations.map((station) => (
+            <StationCard
+              key={station.id}
+              station={station}
+              onPress={() => handleStationPress(station.id)}
+            />
+          ))}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Membership Plans</Text>
+            <TouchableOpacity
+              onPress={() => router.push("/(modals)/membership")}
+            >
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={memberships}
+            renderItem={({ item }) => (
+              <MembershipCard
+                membership={item}
+                onPress={() => router.push("/(modals)/membership")}
+              />
+            )}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.membershipContainer}
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+export default function HomeScreen() {
+  return (
+    <Suspense fallback={<HomeScreenSkeleton />}>
+      <HomeScreenContent />
+    </Suspense>
   );
 }
 
@@ -426,7 +460,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary[600],
   },
-  washTypesContainer: {
+  membershipContainer: {
     paddingRight: 16,
   },
   recentWashCard: {

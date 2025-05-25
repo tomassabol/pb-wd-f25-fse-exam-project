@@ -1,57 +1,109 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { Search, List, MapPin, ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { COLORS } from '@/constants/colors';
-import { StationCard } from '@/components/stations/StationCard';
-import { StationMap } from '@/components/stations/StationMap';
-import { mockStations } from '@/data/mockStations';
-import { Station } from '@/types/station';
+import { useState, useEffect, useMemo, Suspense } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  TextInput,
+  Dimensions,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import {
+  Search,
+  List,
+  MapPin,
+  ChevronLeft,
+  ChevronRight,
+  Navigation,
+} from "lucide-react-native";
+import { COLORS } from "@/constants/colors";
+import { StationCard } from "@/components/stations/StationCard";
+import { StationMap } from "@/components/stations/StationMap";
+import { StationsSkeleton } from "@/components/stations/StationsSkeleton";
+import { useWashingStationsSuspenseQuery } from "@/hooks/washing-stations-hooks";
+import { transformWashingStationsToStations } from "@/utils/stationTransform";
+import { useLocation } from "@/contexts/LocationContext";
+import { Station } from "@/types/station";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
-export default function StationsScreen() {
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [stations, setStations] = useState<Station[]>(mockStations);
-  const [filteredStations, setFilteredStations] = useState<Station[]>(mockStations);
+function StationsContent() {
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  
-  const filters = ['Manual', 'Automatic', 'Open Now', 'Favorites', 'Premium'];
 
-  useEffect(() => {
-    let filtered = stations;
-    
-    // Apply search filter
+  // Derive API filter parameters from selected filters
+  const apiFilters = useMemo(() => {
+    const filters: {
+      isOpen?: boolean;
+      isPremium?: boolean;
+      type?: "manual" | "automatic";
+    } = {};
+
+    if (selectedFilters.includes("Open Now")) {
+      filters.isOpen = true;
+    }
+    if (selectedFilters.includes("Premium")) {
+      filters.isPremium = true;
+    }
+    if (
+      selectedFilters.includes("Manual") &&
+      !selectedFilters.includes("Automatic")
+    ) {
+      filters.type = "manual";
+    } else if (
+      selectedFilters.includes("Automatic") &&
+      !selectedFilters.includes("Manual")
+    ) {
+      filters.type = "automatic";
+    }
+
+    return filters;
+  }, [selectedFilters]);
+
+  const { data: washingStations } = useWashingStationsSuspenseQuery(apiFilters);
+
+  const {
+    userLocation,
+    hasLocationPermission,
+    requestLocationPermission,
+    isLocationLoading,
+  } = useLocation();
+
+  // Transform, filter by search, and sort stations by distance
+  const stations = useMemo(() => {
+    const transformed = transformWashingStationsToStations(
+      washingStations,
+      userLocation
+    );
+
+    // Apply search filter (only local filtering needed since API handles other filters)
+    let filtered = transformed;
     if (searchQuery) {
-      filtered = filtered.filter(station => 
-        station.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        station.address.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = transformed.filter(
+        (station) =>
+          station.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          station.address.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
-    // Apply tag filters
-    if (selectedFilters.length > 0) {
-      filtered = filtered.filter(station => {
-        return selectedFilters.every(filter => {
-          if (filter === 'Open Now') return station.isOpen;
-          if (filter === 'Favorites') return station.isFavorite;
-          if (filter === 'Manual') return station.type === 'manual';
-          if (filter === 'Automatic') return station.type === 'automatic';
-          if (filter === 'Premium') return station.isPremium;
-          return true;
-        });
-      });
+
+    // Apply favorites filter locally (since API doesn't handle this)
+    if (selectedFilters.includes("Favorites")) {
+      filtered = filtered.filter((station) => station.isFavorite);
     }
-    
-    setFilteredStations(filtered);
-  }, [searchQuery, selectedFilters, stations]);
+
+    // Sort by distance (closest first)
+    return filtered.sort((a, b) => a.distance - b.distance);
+  }, [washingStations, userLocation, searchQuery, selectedFilters]);
+
+  const filters = ["Manual", "Automatic", "Open Now", "Favorites", "Premium"];
 
   const toggleFilter = (filter: string) => {
-    setSelectedFilters(prev => 
-      prev.includes(filter) 
-        ? prev.filter(f => f !== filter) 
+    setSelectedFilters((prev) =>
+      prev.includes(filter)
+        ? prev.filter((f) => f !== filter)
         : [...prev, filter]
     );
   };
@@ -63,35 +115,56 @@ export default function StationsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Wash Stations</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.title}>Wash Stations</Text>
+          <TouchableOpacity
+            style={[
+              styles.locationButton,
+              hasLocationPermission && styles.locationButtonActive,
+            ]}
+            onPress={requestLocationPermission}
+            disabled={isLocationLoading}
+          >
+            <Navigation
+              size={16}
+              color={
+                hasLocationPermission ? COLORS.success[600] : COLORS.gray[500]
+              }
+            />
+          </TouchableOpacity>
+        </View>
         <View style={styles.viewToggle}>
           <TouchableOpacity
             style={[
               styles.toggleButton,
-              viewMode === 'list' && styles.activeToggle,
+              viewMode === "list" && styles.activeToggle,
             ]}
-            onPress={() => setViewMode('list')}
+            onPress={() => setViewMode("list")}
           >
-            <List 
-              size={20} 
-              color={viewMode === 'list' ? COLORS.primary[600] : COLORS.gray[500]} 
+            <List
+              size={20}
+              color={
+                viewMode === "list" ? COLORS.primary[600] : COLORS.gray[500]
+              }
             />
           </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.toggleButton,
-              viewMode === 'map' && styles.activeToggle,
+              viewMode === "map" && styles.activeToggle,
             ]}
-            onPress={() => setViewMode('map')}
+            onPress={() => setViewMode("map")}
           >
-            <MapPin 
-              size={20} 
-              color={viewMode === 'map' ? COLORS.primary[600] : COLORS.gray[500]} 
+            <MapPin
+              size={20}
+              color={
+                viewMode === "map" ? COLORS.primary[600] : COLORS.gray[500]
+              }
             />
           </TouchableOpacity>
         </View>
       </View>
-      
+
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
           <Search size={20} color={COLORS.gray[500]} />
@@ -104,7 +177,7 @@ export default function StationsScreen() {
           />
         </View>
       </View>
-      
+
       <View style={styles.filtersContainer}>
         <FlatList
           data={filters}
@@ -128,21 +201,21 @@ export default function StationsScreen() {
           )}
           horizontal
           showsHorizontalScrollIndicator={false}
-          keyExtractor={item => item}
+          keyExtractor={(item) => item}
           contentContainerStyle={styles.filtersList}
         />
       </View>
-      
-      {viewMode === 'list' ? (
+
+      {viewMode === "list" ? (
         <FlatList
-          data={filteredStations}
+          data={stations}
           renderItem={({ item }) => (
             <StationCard
               station={item}
               onPress={() => handleStationPress(item.id)}
             />
           )}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.stationsList}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -156,15 +229,12 @@ export default function StationsScreen() {
         />
       ) : (
         <View style={styles.mapContainer}>
-          <StationMap 
-            stations={filteredStations} 
-            onStationPress={handleStationPress}
-          />
-          
-          {filteredStations.length > 0 && (
+          <StationMap stations={stations} onStationPress={handleStationPress} />
+
+          {stations.length > 0 && (
             <View style={styles.carouselContainer}>
               <FlatList
-                data={filteredStations}
+                data={stations}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
@@ -172,55 +242,72 @@ export default function StationsScreen() {
                 decelerationRate="fast"
                 contentContainerStyle={styles.carouselContent}
                 renderItem={({ item }) => (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.carouselCard}
                     onPress={() => handleStationPress(item.id)}
                   >
                     <View style={styles.carouselCardContent}>
                       <View>
-                        <Text style={styles.carouselStationName}>{item.name}</Text>
-                        <Text style={styles.carouselStationAddress}>{item.address}</Text>
+                        <Text style={styles.carouselStationName}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.carouselStationAddress}>
+                          {item.address}
+                        </Text>
                         <View style={styles.carouselBadges}>
-                          <View style={[
-                            styles.carouselBadge,
-                            {
-                              backgroundColor: item.isOpen 
-                                ? COLORS.success[100] 
-                                : COLORS.gray[200]
-                            }
-                          ]}>
-                            <Text style={[
-                              styles.carouselBadgeText,
+                          <View
+                            style={[
+                              styles.carouselBadge,
                               {
-                                color: item.isOpen 
-                                  ? COLORS.success[700] 
-                                  : COLORS.gray[600]
-                              }
-                            ]}>
-                              {item.isOpen ? 'Open' : 'Closed'}
+                                backgroundColor: item.isOpen
+                                  ? COLORS.success[100]
+                                  : COLORS.gray[200],
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.carouselBadgeText,
+                                {
+                                  color: item.isOpen
+                                    ? COLORS.success[700]
+                                    : COLORS.gray[600],
+                                },
+                              ]}
+                            >
+                              {item.isOpen ? "Open" : "Closed"}
                             </Text>
                           </View>
-                          <View style={[
-                            styles.carouselBadge,
-                            { backgroundColor: COLORS.primary[100] }
-                          ]}>
-                            <Text style={[
-                              styles.carouselBadgeText,
-                              { color: COLORS.primary[700] }
-                            ]}>
-                              {item.type === 'manual' ? 'Manual' : 'Automatic'}
-                            </Text>
-                          </View>
+                          {item.type.map((type: string, index: number) => (
+                            <View
+                              key={index}
+                              style={[
+                                styles.carouselBadge,
+                                { backgroundColor: COLORS.primary[100] },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.carouselBadgeText,
+                                  { color: COLORS.primary[700] },
+                                ]}
+                              >
+                                {type === "manual" ? "Manual" : "Automatic"}
+                              </Text>
+                            </View>
+                          ))}
                         </View>
                       </View>
                       <View style={styles.distanceContainer}>
-                        <Text style={styles.distanceText}>{item.distance} km</Text>
+                        <Text style={styles.distanceText}>
+                          {item.distance} km
+                        </Text>
                         <ChevronRight size={20} color={COLORS.primary[600]} />
                       </View>
                     </View>
                   </TouchableOpacity>
                 )}
-                keyExtractor={item => item.id}
+                keyExtractor={(item) => item.id}
               />
             </View>
           )}
@@ -233,37 +320,53 @@ export default function StationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: "#F8F9FA",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 8,
   },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   title: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
     fontSize: 24,
     color: COLORS.gray[900],
+    marginRight: 12,
+  },
+  locationButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.gray[100],
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  locationButtonActive: {
+    backgroundColor: COLORS.success[100],
   },
   viewToggle: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: COLORS.gray[100],
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   toggleButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   activeToggle: {
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -274,9 +377,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
@@ -285,7 +388,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 16,
     color: COLORS.gray[900],
     marginLeft: 8,
@@ -307,7 +410,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary[100],
   },
   filterText: {
-    fontFamily: 'Inter-Medium',
+    fontFamily: "Inter-Medium",
     fontSize: 14,
     color: COLORS.gray[700],
   },
@@ -319,28 +422,28 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 32,
   },
   emptyTitle: {
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: "Poppins-SemiBold",
     fontSize: 18,
     color: COLORS.gray[900],
     marginBottom: 8,
   },
   emptyMessage: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 16,
     color: COLORS.gray[600],
-    textAlign: 'center',
+    textAlign: "center",
   },
   mapContainer: {
     flex: 1,
-    position: 'relative',
+    position: "relative",
   },
   carouselContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 24,
     left: 0,
     right: 0,
@@ -351,9 +454,9 @@ const styles = StyleSheet.create({
   carouselCard: {
     width: width - 80,
     marginRight: 12,
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderRadius: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -361,23 +464,23 @@ const styles = StyleSheet.create({
   },
   carouselCardContent: {
     padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   carouselStationName: {
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: "Poppins-SemiBold",
     fontSize: 16,
     color: COLORS.gray[900],
     marginBottom: 4,
   },
   carouselStationAddress: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 14,
     color: COLORS.gray[600],
     marginBottom: 8,
   },
   carouselBadges: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   carouselBadge: {
     paddingHorizontal: 8,
@@ -386,17 +489,25 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   carouselBadgeText: {
-    fontFamily: 'Inter-Medium',
+    fontFamily: "Inter-Medium",
     fontSize: 12,
   },
   distanceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   distanceText: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: "Inter-SemiBold",
     fontSize: 16,
     color: COLORS.primary[700],
     marginRight: 4,
   },
 });
+
+export default function StationsScreen() {
+  return (
+    <Suspense fallback={<StationsSkeleton />}>
+      <StationsContent />
+    </Suspense>
+  );
+}

@@ -1,5 +1,6 @@
-import axios, { type AxiosRequestConfig } from "axios";
+import axios from "axios";
 import { type Membership } from "../../api/db/schema/membership.schema";
+import { getAxiosConfig } from "./util/axios-config";
 
 export const MembershipService = {
   getMemberships: async () => {
@@ -10,13 +11,3 @@ export const MembershipService = {
     return data;
   },
 } as const;
-
-const getAxiosConfig = (): AxiosRequestConfig => {
-  return {
-    baseURL: "http://127.0.0.1:3000",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": process.env.EXPO_PUBLIC_API_KEY,
-    },
-  };
-};

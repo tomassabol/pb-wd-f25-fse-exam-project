@@ -6,7 +6,7 @@ export interface Coordinate {
 export interface Station {
   id: string;
   name: string;
-  type: 'manual' | 'automatic';
+  type: ("manual" | "automatic")[];
   address: string;
   coordinate: Coordinate;
   rating: number;

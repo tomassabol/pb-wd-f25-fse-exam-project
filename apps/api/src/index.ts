@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { authMiddleware } from "./middleware/auth-middleware";
 import { membershipRoutes } from "./routes/membership-routes";
+import { washingStationRoutes } from "./routes/washing-stations-routes";
 
 const server = Fastify({
   logger: true,
@@ -18,6 +19,7 @@ async function startServer() {
   });
 
   server.register(membershipRoutes);
+  server.register(washingStationRoutes);
 
   try {
     await server.listen({ port: 3000, host: "0.0.0.0" });

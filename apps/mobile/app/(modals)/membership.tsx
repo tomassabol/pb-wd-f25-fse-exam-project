@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, Suspense } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   Image,
   Animated,
-} from 'react-native';
-import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '@/constants/colors';
+} from "react-native";
+import { router } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { COLORS } from "@/constants/colors";
 import {
   ArrowLeft,
   Check,
@@ -19,109 +19,80 @@ import {
   Star,
   Zap,
   Shield,
-} from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+} from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useMembershipsSuspenseQuery } from "@/hooks/memberships-hooks";
+import { MembershipSkeleton } from "@/components/MembershipSkeleton";
+import type { Membership as APIMembership } from "../../../api/db/schema/membership.schema";
 
-interface Membership {
-  id: string;
-  name: string;
-  price: number;
-  originalPrice?: number;
-  period: string;
-  features: string[];
+type EnhancedMembership = APIMembership & {
   color: string;
   popular?: boolean;
   bestValue?: boolean;
   gradient: [string, string];
-  icon: any;
-}
+  icon: React.ElementType;
+};
 
-const memberships: Membership[] = [
+// Visual configuration for different membership types
+const membershipVisualConfig: Record<
+  string,
   {
-    id: 'basic',
-    name: 'Basic',
-    price: 299,
-    originalPrice: 399,
-    period: 'month',
-    features: [
-      'Unlimited Basic Washes',
-      'Access to all locations',
-      'Mobile app features',
-      '10% off Premium Washes',
-      'Cancel anytime',
-    ],
+    color: string;
+    gradient: [string, string];
+    icon: React.ElementType;
+    popular?: boolean;
+    bestValue?: boolean;
+  }
+> = {
+  basic: {
     color: COLORS.primary[600],
     gradient: [COLORS.primary[500], COLORS.primary[700]],
     icon: Shield,
   },
-  {
-    id: 'premium',
-    name: 'Premium',
-    price: 499,
-    originalPrice: 699,
-    period: 'month',
-    features: [
-      'Unlimited Premium Washes',
-      'Priority access',
-      'Family sharing (up to 3 cars)',
-      '20% off Deluxe Washes',
-      'Exclusive offers',
-      'Cancel anytime',
-    ],
+  premium: {
     color: COLORS.accent[600],
     gradient: [COLORS.accent[500], COLORS.accent[700]],
-    popular: true,
     icon: Star,
+    popular: true,
   },
-  {
-    id: 'unlimited',
-    name: 'Unlimited',
-    price: 699,
-    originalPrice: 999,
-    period: 'month',
-    features: [
-      'Unlimited All Washes',
-      'VIP priority access',
-      'Family sharing (up to 5 cars)',
-      'Interior cleaning credits',
-      'Premium car care products',
-      '24/7 support',
-      'Cancel anytime',
-    ],
+  unlimited: {
     color: COLORS.teal[600],
     gradient: [COLORS.teal[500], COLORS.teal[700]],
-    bestValue: true,
     icon: Zap,
+    bestValue: true,
   },
-];
+};
 
-export default function MembershipScreen() {
+// Function to enhance API membership data with visual properties
+const enhanceMembership = (membership: APIMembership): EnhancedMembership => {
+  const config = membershipVisualConfig[membership.name.toLowerCase()] || {
+    color: COLORS.gray[600],
+    gradient: [COLORS.gray[500], COLORS.gray[700]],
+    icon: Shield,
+  };
+
+  return { ...membership, ...config };
+};
+
+function MembershipContent() {
+  const { data: apiMemberships } = useMembershipsSuspenseQuery();
+  const memberships = apiMemberships.map(enhanceMembership);
+
   const [selectedMembership, setSelectedMembership] =
-    useState<Membership | null>(null);
-  const [selectedPayment, setSelectedPayment] = useState('card');
+    useState<EnhancedMembership | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState("card");
 
-  const calculateSavings = (membership: Membership) => {
+  const calculateSavings = (membership: EnhancedMembership) => {
     if (!membership.originalPrice) return 0;
     return Math.round(
       ((membership.originalPrice - membership.price) /
         membership.originalPrice) *
-        100,
+        100
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={24} color={COLORS.gray[800]} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Choose Membership</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
+    <React.Fragment>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.heroSection}>
           <Text style={styles.heroTitle}>Unlimited Car Washes</Text>
@@ -144,7 +115,13 @@ export default function MembershipScreen() {
                 selectedMembership?.id === membership.id && styles.selectedCard,
                 membership.popular && styles.popularCard,
               ]}
-              onPress={() => setSelectedMembership(membership)}
+              onPress={() => {
+                if (selectedMembership?.id === membership.id) {
+                  return setSelectedMembership(null);
+                }
+
+                setSelectedMembership(membership);
+              }}
             >
               {membership.popular && (
                 <View style={styles.popularBadge}>
@@ -227,20 +204,20 @@ export default function MembershipScreen() {
           <TouchableOpacity
             style={[
               styles.paymentOption,
-              selectedPayment === 'card' && styles.selectedPayment,
+              selectedPayment === "card" && styles.selectedPayment,
             ]}
-            onPress={() => setSelectedPayment('card')}
+            onPress={() => setSelectedPayment("card")}
           >
             <View
               style={[
                 styles.paymentIconContainer,
-                selectedPayment === 'card' && styles.selectedPaymentIcon,
+                selectedPayment === "card" && styles.selectedPaymentIcon,
               ]}
             >
               <CreditCard
                 size={24}
                 color={
-                  selectedPayment === 'card'
+                  selectedPayment === "card"
                     ? COLORS.primary[600]
                     : COLORS.gray[500]
                 }
@@ -252,25 +229,25 @@ export default function MembershipScreen() {
                 Visa, Mastercard, American Express
               </Text>
             </View>
-            {selectedPayment === 'card' && <View style={styles.selectedDot} />}
+            {selectedPayment === "card" && <View style={styles.selectedDot} />}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
               styles.paymentOption,
-              selectedPayment === 'mobilepay' && styles.selectedPayment,
+              selectedPayment === "mobilepay" && styles.selectedPayment,
             ]}
-            onPress={() => setSelectedPayment('mobilepay')}
+            onPress={() => setSelectedPayment("mobilepay")}
           >
             <View
               style={[
                 styles.paymentIconContainer,
-                selectedPayment === 'mobilepay' && styles.selectedPaymentIcon,
+                selectedPayment === "mobilepay" && styles.selectedPaymentIcon,
               ]}
             >
               <Image
                 source={{
-                  uri: 'https://images.pexels.com/photos/4482900/pexels-photo-4482900.jpeg',
+                  uri: "https://images.pexels.com/photos/4482900/pexels-photo-4482900.jpeg",
                 }}
                 style={styles.mobilepayIcon}
               />
@@ -281,7 +258,7 @@ export default function MembershipScreen() {
                 Fast and secure mobile payment
               </Text>
             </View>
-            {selectedPayment === 'mobilepay' && (
+            {selectedPayment === "mobilepay" && (
               <View style={styles.selectedDot} />
             )}
           </TouchableOpacity>
@@ -331,34 +308,34 @@ export default function MembershipScreen() {
             <Text style={styles.subscribeButtonText}>
               {selectedMembership
                 ? `Subscribe for ${selectedMembership.price} kr/${selectedMembership.period}`
-                : 'Select a plan to continue'}
+                : "Select a plan to continue"}
             </Text>
             {selectedMembership && selectedMembership.originalPrice && (
               <Text style={styles.subscribeButtonSavings}>
-                Save{' '}
-                {selectedMembership.originalPrice - selectedMembership.price}{' '}
+                Save{" "}
+                {selectedMembership.originalPrice - selectedMembership.price}{" "}
                 kr/month
               </Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </React.Fragment>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: "#F8F9FA",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[200],
   },
@@ -366,12 +343,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: COLORS.gray[100],
   },
   headerTitle: {
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: "Poppins-SemiBold",
     fontSize: 18,
     color: COLORS.gray[900],
   },
@@ -380,21 +357,21 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     padding: 24,
-    alignItems: 'center',
-    backgroundColor: '#FFF',
+    alignItems: "center",
+    backgroundColor: "#FFF",
   },
   heroTitle: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
     fontSize: 28,
     color: COLORS.gray[900],
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   heroSubtitle: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 16,
     color: COLORS.gray[600],
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 16,
   },
   offerBanner: {
@@ -406,7 +383,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accent[200],
   },
   offerText: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: "Inter-SemiBold",
     fontSize: 14,
     color: COLORS.accent[700],
   },
@@ -415,13 +392,13 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   membershipCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderRadius: 20,
     marginBottom: 20,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 2,
     borderColor: COLORS.gray[200],
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -436,7 +413,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.02 }],
   },
   popularBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     right: 16,
     backgroundColor: COLORS.accent[600],
@@ -444,17 +421,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     zIndex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   popularText: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: "Inter-SemiBold",
     fontSize: 12,
-    color: '#FFF',
+    color: "#FFF",
   },
   bestValueBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     left: 16,
     backgroundColor: COLORS.success[600],
@@ -464,9 +441,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   bestValueText: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: "Inter-SemiBold",
     fontSize: 12,
-    color: '#FFF',
+    color: "#FFF",
   },
   membershipHeader: {
     padding: 24,
@@ -474,111 +451,111 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   membershipInfo: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   membershipName: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
     fontSize: 24,
-    color: '#FFF',
+    color: "#FFF",
     marginTop: 8,
     marginBottom: 12,
   },
   priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
     marginBottom: 8,
   },
   membershipPrice: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
     fontSize: 32,
-    color: '#FFF',
+    color: "#FFF",
   },
   originalPrice: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.7)',
-    textDecorationLine: 'line-through',
+    color: "rgba(255, 255, 255, 0.7)",
+    textDecorationLine: "line-through",
     marginLeft: 8,
   },
   periodText: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: "rgba(255, 255, 255, 0.9)",
   },
   savingsBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   savingsText: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: "Inter-SemiBold",
     fontSize: 12,
-    color: '#FFF',
+    color: "#FFF",
   },
   featuresContainer: {
     padding: 24,
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
   },
   featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 16,
   },
   checkIcon: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   featureText: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 16,
     color: COLORS.gray[700],
     marginLeft: 12,
     flex: 1,
   },
   selectedIndicator: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 16,
     right: 16,
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: COLORS.primary[600],
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   paymentSection: {
     padding: 24,
   },
   sectionTitle: {
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: "Poppins-SemiBold",
     fontSize: 20,
     color: COLORS.gray[900],
     marginBottom: 4,
   },
   sectionSubtitle: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 14,
     color: COLORS.gray[600],
     marginBottom: 20,
   },
   paymentOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
     padding: 20,
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 2,
     borderColor: COLORS.gray[200],
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -592,8 +569,8 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: COLORS.gray[100],
   },
   selectedPaymentIcon: {
@@ -609,13 +586,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   paymentTitle: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: "Inter-SemiBold",
     fontSize: 16,
     color: COLORS.gray[900],
     marginBottom: 2,
   },
   paymentSubtitle: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 14,
     color: COLORS.gray[600],
   },
@@ -626,8 +603,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary[600],
   },
   guaranteeSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: COLORS.success[50],
     marginHorizontal: 24,
     padding: 20,
@@ -641,24 +618,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   guaranteeTitle: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: "Inter-SemiBold",
     fontSize: 16,
     color: COLORS.success[800],
     marginBottom: 2,
   },
   guaranteeSubtitle: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 14,
     color: COLORS.success[700],
   },
   subscriptionInfo: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     padding: 24,
     paddingTop: 0,
   },
   subscriptionText: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 14,
     color: COLORS.gray[600],
     marginLeft: 8,
@@ -668,14 +645,14 @@ const styles = StyleSheet.create({
   footer: {
     padding: 24,
     paddingTop: 16,
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderTopWidth: 1,
     borderTopColor: COLORS.gray[200],
   },
   subscribeButton: {
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -687,18 +664,39 @@ const styles = StyleSheet.create({
   },
   subscribeButtonGradient: {
     paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   subscribeButtonText: {
-    fontFamily: 'Inter-Bold',
+    fontFamily: "Inter-Bold",
     fontSize: 16,
-    color: '#FFF',
+    color: "#FFF",
   },
   subscribeButtonSavings: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: "rgba(255, 255, 255, 0.9)",
     marginTop: 2,
   },
 });
+
+export default function MembershipScreen() {
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <ArrowLeft size={24} color={COLORS.gray[800]} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Choose Membership</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <Suspense fallback={<MembershipSkeleton />}>
+        <MembershipContent />
+      </Suspense>
+    </SafeAreaView>
+  );
+}

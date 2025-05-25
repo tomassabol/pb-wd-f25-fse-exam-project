@@ -1,0 +1,1 @@
+ALTER TABLE "washing_station" DROP COLUMN "is_open";
