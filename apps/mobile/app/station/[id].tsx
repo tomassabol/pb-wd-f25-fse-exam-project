@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import {
   View,
   Text,
@@ -28,16 +28,17 @@ import {
 
 import { useWash } from "@/hooks/useWash";
 import { useAuth } from "@/hooks/useAuth";
-import { useWashingStationByIdSuspenseQuery } from "@/hooks/washing-stations-hooks";
+import {
+  useAddWashingStationToFavoritesMutation,
+  useRemoveWashingStationFromFavoritesMutation,
+  useWashingStationByIdSuspenseQuery,
+} from "@/hooks/washing-stations-hooks";
 import { useMembershipsSuspenseQuery } from "@/hooks/memberships-hooks";
 import { transformWashingStationToStation } from "@/utils/stationTransform";
 import { useLocation } from "@/contexts/LocationContext";
-import { Station } from "@/types/station";
 import { StationMap } from "@/components/stations/StationMap";
 import { MembershipCard } from "@/components/membership/MembershipCard";
 import { StationDetailSkeleton } from "@/components/skeletons/StationDetailSkeleton";
-
-const { width } = Dimensions.get("window");
 
 function StationDetailContent() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -46,7 +47,10 @@ function StationDetailContent() {
   const { userLocation } = useLocation();
   const { data: washingStation } = useWashingStationByIdSuspenseQuery(id!);
   const { data: memberships } = useMembershipsSuspenseQuery();
-  const [isFavorite, setIsFavorite] = useState(false);
+  const { mutateAsync: addWashingStationToFavorites } =
+    useAddWashingStationToFavoritesMutation();
+  const { mutateAsync: removeWashingStationFromFavorites } =
+    useRemoveWashingStationFromFavoritesMutation();
   const [scrollY] = useState(new Animated.Value(0));
 
   const headerOpacity = scrollY.interpolate({
@@ -63,13 +67,17 @@ function StationDetailContent() {
       : undefined
   );
 
-  useEffect(() => {
-    setIsFavorite(station.isFavorite);
-  }, [station.isFavorite]);
+  const toggleFavorite = useCallback(async () => {
+    if (washingStation.isFavorite) {
+      return await removeWashingStationFromFavorites(washingStation.id);
+    }
 
-  const toggleFavorite = () => {
-    setIsFavorite((prev) => !prev);
-  };
+    return await addWashingStationToFavorites(washingStation.id);
+  }, [
+    washingStation.isFavorite,
+    addWashingStationToFavorites,
+    removeWashingStationFromFavorites,
+  ]);
 
   const handleScanPress = () => {
     if (user?.licensePlate) {
@@ -99,7 +107,7 @@ function StationDetailContent() {
               <Heart
                 size={20}
                 color="#FFF"
-                fill={isFavorite ? "#FFF" : "transparent"}
+                fill={washingStation.isFavorite ? "#FFF" : "transparent"}
               />
             </TouchableOpacity>
           </View>
@@ -138,7 +146,7 @@ function StationDetailContent() {
                   <Heart
                     size={20}
                     color="#FFF"
-                    fill={isFavorite ? "#FFF" : "transparent"}
+                    fill={washingStation.isFavorite ? "#FFF" : "transparent"}
                   />
                 </TouchableOpacity>
               </View>

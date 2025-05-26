@@ -57,6 +57,20 @@
       "when": 1748205661476,
       "tag": "0007_spotty_carnage",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1748268574561,
+      "tag": "0008_clammy_alice",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1748268894956,
+      "tag": "0009_flaky_thaddeus_ross",
+      "breakpoints": true
     }
   ]
 }

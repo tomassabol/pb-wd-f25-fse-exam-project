@@ -1,10 +1,11 @@
 import { TouchableOpacity, View, Text, Image, StyleSheet } from "react-native";
 import { Heart, Star, MapPin } from "lucide-react-native";
 import { COLORS } from "@/constants/colors";
-import { Station } from "@/types/station";
+import { WashingStation } from "../../../api/db/schema";
+import { transformWashingStationToStation } from "@/utils/stationTransform";
 
 interface StationCardProps {
-  station: Station;
+  station: WashingStation & { isFavorite: boolean };
   onPress: () => void;
   onFavoritePress?: () => void;
   showFavoriteButton?: boolean;
@@ -16,9 +17,15 @@ export function StationCard({
   onFavoritePress,
   showFavoriteButton = false,
 }: StationCardProps) {
+  const transformedStation = transformWashingStationToStation(station);
+
   return (
     <TouchableOpacity style={styles.container} onPress={onPress}>
-      <Image source={{ uri: station.imageUrl }} style={styles.image} />
+      <Image
+        source={{ uri: station.imageUrl ?? "" }}
+        style={styles.image}
+        resizeMode="cover"
+      />
 
       <View style={styles.content}>
         <View style={styles.header}>
@@ -50,23 +57,23 @@ export function StationCard({
 
           <View style={styles.detailDivider} />
 
-          <Text style={styles.distance}>{station.distance} km</Text>
+          <Text style={styles.distance}>{transformedStation.distance} km</Text>
 
           <View style={styles.detailDivider} />
 
           <View
             style={[
               styles.statusBadge,
-              station.isOpen ? styles.openBadge : styles.closedBadge,
+              transformedStation.isOpen ? styles.openBadge : styles.closedBadge,
             ]}
           >
             <Text
               style={[
                 styles.statusText,
-                station.isOpen ? styles.openText : styles.closedText,
+                transformedStation.isOpen ? styles.openText : styles.closedText,
               ]}
             >
-              {station.isOpen ? "Open" : "Closed"}
+              {transformedStation.isOpen ? "Open" : "Closed"}
             </Text>
           </View>
         </View>

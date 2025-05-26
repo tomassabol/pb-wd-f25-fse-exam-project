@@ -1,5 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -9,6 +9,7 @@ import {
   integer,
   json,
 } from "drizzle-orm/pg-core";
+import { userWashingStation } from "./user-washing-station.schema";
 
 export const washingStation = pgTable("washing_station", {
   id: text("id").primaryKey().$defaultFn(createId),
@@ -39,3 +40,10 @@ export const washingStation = pgTable("washing_station", {
 
 export type WashingStation = typeof washingStation.$inferSelect;
 export type NewWashingStation = typeof washingStation.$inferInsert;
+
+export const washingStationRelations = relations(
+  washingStation,
+  ({ many }) => ({
+    userWashingStations: many(userWashingStation),
+  })
+);

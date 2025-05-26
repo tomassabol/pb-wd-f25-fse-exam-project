@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import {
   Search,
   List,
   MapPin,
-  ChevronLeft,
   ChevronRight,
   Navigation,
 } from "lucide-react-native";
@@ -25,7 +24,6 @@ import { StationsSkeleton } from "@/components/stations/StationsSkeleton";
 import { useWashingStationsSuspenseQuery } from "@/hooks/washing-stations-hooks";
 import { transformWashingStationsToStations } from "@/utils/stationTransform";
 import { useLocation } from "@/contexts/LocationContext";
-import { Station } from "@/types/station";
 
 const { width } = Dimensions.get("window");
 
