@@ -2,6 +2,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { relations, sql } from "drizzle-orm";
 import { bigint, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { userMembership } from "./user-membership.schema";
+import { carWash } from "./wash.schema";
 
 export const membership = pgTable("membership", {
   id: text("id").primaryKey().$defaultFn(createId),
@@ -25,4 +26,5 @@ export type NewMembership = typeof membership.$inferInsert;
 
 export const membershipRelations = relations(membership, ({ many }) => ({
   userMemberships: many(userMembership),
+  carWashes: many(carWash),
 }));

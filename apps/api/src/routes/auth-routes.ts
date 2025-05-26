@@ -12,7 +12,6 @@ import {
 import { validateBody } from "../middleware/validation-middleware";
 
 export async function authRoutes(fastify: FastifyInstance) {
-  // Register route
   fastify.post<{ Body: RegisterRequest }>(
     "/v1/auth/register",
     { preHandler: validateBody(registerSchema) },

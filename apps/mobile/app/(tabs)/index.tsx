@@ -30,6 +30,7 @@ import { MembershipCard } from "@/components/membership/MembershipCard";
 import { transformWashingStationToStation } from "@/utils/stationTransform";
 import { Station } from "@/types/station";
 import { HomeScreenSkeleton } from "@/components/skeletons/HomeScreenSkeleton";
+import { useCarWashHistorySuspenseQuery } from "@/hooks/car-wash-hooks";
 
 const ActiveWashBar = () => {
   const { activeWash } = useWash();
@@ -56,6 +57,7 @@ function HomeScreenContent() {
     isOpen: true,
   });
   const { data: memberships } = useMembershipsSuspenseQuery();
+  const { data: recentWashes } = useCarWashHistorySuspenseQuery();
   const [nearbyStations, setNearbyStations] = useState<Station[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
 
@@ -189,8 +191,8 @@ function HomeScreenContent() {
           </View>
         )}
 
-        {/* {user?.recentWashes && user.recentWashes.length > 0 && (
-          <View style={[styles.section, styles.lastSection]}>
+        {recentWashes.length > 0 && (
+          <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent Washes</Text>
               <TouchableOpacity onPress={() => router.push("/history")}>
@@ -198,32 +200,52 @@ function HomeScreenContent() {
               </TouchableOpacity>
             </View>
 
-            {user.recentWashes.slice(0, 2).map((wash) => (
+            {recentWashes.slice(0, 1).map((wash) => (
               <TouchableOpacity
                 key={wash.id}
                 style={styles.recentWashCard}
                 onPress={() => router.push(`/wash-detail/${wash.id}`)}
               >
-                <View style={styles.recentWashInfo}>
-                  <Text style={styles.recentWashType}>
-                    {wash.washType.name}
-                  </Text>
-                  <View style={styles.recentWashDetails}>
-                    <Clock size={14} color={COLORS.gray[500]} />
-                    <Text style={styles.recentWashDate}>{wash.date}</Text>
-                    <View style={styles.locationContainer}>
-                      <MapPin size={14} color={COLORS.gray[500]} />
-                      <Text style={styles.recentWashLocation} numberOfLines={1}>
-                        {wash.station.name}
-                      </Text>
+                <View style={styles.recentWashHeader}>
+                  <View style={styles.washTypeIcon}>
+                    <Droplets size={18} color={COLORS.primary[600]} />
+                  </View>
+                  <View style={styles.recentWashInfo}>
+                    <Text style={styles.recentWashType}>
+                      {wash.washType.name}
+                    </Text>
+                    <View style={styles.washStatusContainer}>
+                      <View style={styles.completedDot} />
+                      <Text style={styles.washStatus}>Completed</Text>
                     </View>
                   </View>
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.recentWashPrice}>{wash.price} kr</Text>
+                  </View>
                 </View>
-                <Text style={styles.recentWashPrice}>{wash.price} kr</Text>
+
+                <View style={styles.recentWashDetails}>
+                  <View style={styles.detailItem}>
+                    <Clock size={14} color={COLORS.gray[500]} />
+                    <Text style={styles.detailText}>{wash.date}</Text>
+                  </View>
+
+                  <View style={styles.detailItem}>
+                    <MapPin size={14} color={COLORS.gray[500]} />
+                    <Text style={styles.detailText} numberOfLines={1}>
+                      {wash.station.name}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailItem}>
+                    <Car size={14} color={COLORS.gray[500]} />
+                    <Text style={styles.detailText}>{wash.licensePlate}</Text>
+                  </View>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
-        )} */}
+        )}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -242,7 +264,7 @@ function HomeScreenContent() {
           ))}
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, styles.lastSection]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Membership Plans</Text>
             <TouchableOpacity
@@ -465,51 +487,90 @@ const styles = StyleSheet.create({
     paddingRight: 16,
   },
   recentWashCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     backgroundColor: "#FFF",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.gray[100],
+  },
+  recentWashHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  washTypeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primary[50],
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
   recentWashInfo: {
     flex: 1,
   },
   recentWashType: {
-    fontFamily: "Inter-SemiBold",
-    fontSize: 16,
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 18,
     color: COLORS.gray[900],
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  recentWashDetails: {
+  washStatusContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
-  recentWashDate: {
-    fontFamily: "Inter-Regular",
-    fontSize: 14,
-    color: COLORS.gray[600],
-    marginLeft: 4,
-    marginRight: 12,
+  completedDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.success[500],
+    marginRight: 6,
   },
-  locationContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+  washStatus: {
+    fontFamily: "Inter-Medium",
+    fontSize: 13,
+    color: COLORS.success[700],
   },
-  recentWashLocation: {
-    fontFamily: "Inter-Regular",
-    fontSize: 14,
-    color: COLORS.gray[600],
-    marginLeft: 4,
-    maxWidth: 120,
+  priceContainer: {
+    alignItems: "flex-end",
   },
   recentWashPrice: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 16,
+    fontFamily: "Poppins-Bold",
+    fontSize: 20,
     color: COLORS.primary[700],
+  },
+  recentWashDetails: {
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[100],
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  detailText: {
+    fontFamily: "Inter-Regular",
+    fontSize: 14,
+    color: COLORS.gray[600],
+    marginLeft: 8,
+    flex: 1,
+  },
+  cardIcon: {
+    width: 14,
+    height: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardIconText: {
+    fontSize: 10,
   },
   activeWashBar: {
     position: "absolute",

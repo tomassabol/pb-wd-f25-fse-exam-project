@@ -1,11 +1,11 @@
-import { FastifyInstance } from "fastify";
+import { type FastifyInstance } from "fastify";
 import { db } from "../../db/index";
 import { eq, and } from "drizzle-orm";
 import { userMembership, membership } from "../../db/schema";
 import { validateBody } from "../middleware/validation-middleware";
 import {
   createUserMembershipSchema,
-  CreateUserMembershipRequest,
+  type CreateUserMembershipRequest,
 } from "./lib/membership.schemas";
 
 export async function membershipRoutes(server: FastifyInstance) {
@@ -25,11 +25,11 @@ export async function membershipRoutes(server: FastifyInstance) {
     return reply.status(200).send(userMemberships);
   });
 
-  server.post(
+  server.post<{ Body: CreateUserMembershipRequest }>(
     "/v1/user-memberships/:membershipId",
     { preHandler: validateBody(createUserMembershipSchema) },
     async (request, reply) => {
-      const { licensePlate } = request.body as CreateUserMembershipRequest;
+      const { licensePlate } = request.body;
       const { membershipId } = request.params as { membershipId: string };
 
       const membershipRecord = await db.query.membership.findFirst({

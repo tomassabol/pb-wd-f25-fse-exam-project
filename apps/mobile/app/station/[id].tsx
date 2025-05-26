@@ -39,6 +39,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { StationMap } from "@/components/stations/StationMap";
 import { MembershipCard } from "@/components/membership/MembershipCard";
 import { StationDetailSkeleton } from "@/components/skeletons/StationDetailSkeleton";
+import { openMapsWithDirections } from "@/utils/mapUtils";
 
 function StationDetailContent() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -84,6 +85,10 @@ function StationDetailContent() {
       detectLicensePlate(user.licensePlate);
       router.push("/(modals)/wash-selector");
     }
+  };
+
+  const handleGetDirections = () => {
+    openMapsWithDirections(station.coordinate, station.name);
   };
 
   return (
@@ -208,7 +213,7 @@ function StationDetailContent() {
 
             <TouchableOpacity
               style={[styles.actionButton, styles.secondaryButton]}
-              onPress={() => {}}
+              onPress={handleGetDirections}
             >
               <Navigation size={24} color={COLORS.primary[600]} />
               <Text style={styles.secondaryButtonText}>Get Directions</Text>

@@ -8,6 +8,7 @@ import { washingStationRoutes } from "./routes/washing-stations-routes";
 import { washTypeRoutes } from "./routes/wash-type-routes";
 import { authRoutes } from "./routes/auth-routes";
 import { initAuth } from "./auth";
+import { carWashRoutes } from "./routes/car-wash-routes";
 
 const server = Fastify({
   logger: true,
@@ -41,6 +42,7 @@ async function startServer() {
   server.register(membershipRoutes);
   server.register(washingStationRoutes);
   server.register(washTypeRoutes);
+  server.register(carWashRoutes);
 
   try {
     await server.listen({ port: 3000, host: "0.0.0.0" });

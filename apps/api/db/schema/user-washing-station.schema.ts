@@ -21,10 +21,10 @@ export const userWashingStation = pgTable(
       .$onUpdate(() => sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
-    userIdIdx: index("user_id_idx").on(table.userId),
-    washingStationIdIdx: index("washing_station_id_idx").on(
-      table.washingStationId
-    ),
+    userIdIdx: index("user_washing_station_user_id_idx").on(table.userId),
+    washingStationIdIdx: index(
+      "user_washing_station_washing_station_id_idx"
+    ).on(table.washingStationId),
   })
 );
 

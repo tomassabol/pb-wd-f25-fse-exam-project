@@ -10,6 +10,7 @@ import {
   json,
 } from "drizzle-orm/pg-core";
 import { userWashingStation } from "./user-washing-station.schema";
+import { carWash } from "./wash.schema";
 
 export const washingStation = pgTable("washing_station", {
   id: text("id").primaryKey().$defaultFn(createId),
@@ -45,5 +46,6 @@ export const washingStationRelations = relations(
   washingStation,
   ({ many }) => ({
     userWashingStations: many(userWashingStation),
+    washes: many(carWash),
   })
 );
