@@ -1,0 +1,1 @@
+ALTER TABLE "user_membership" ALTER COLUMN "id" SET DATA TYPE text;

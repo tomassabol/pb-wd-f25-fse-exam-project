@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, Suspense } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,18 @@ import {
   Switch,
   ScrollView,
   Alert,
+  ActivityIndicator,
+  Animated,
 } from "react-native";
+import { ErrorBoundary } from "react-error-boundary";
 import { Redirect, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  useUserMembershipsSuspenseQuery,
+  useCancelMembershipMutation,
+} from "@/hooks/memberships-hooks";
 import {
   ArrowRight,
   Bell,
@@ -24,7 +31,278 @@ import {
   Settings,
   Shield,
   UserCog,
+  Plus,
+  X,
 } from "lucide-react-native";
+import React from "react";
+
+function MembershipErrorFallback({
+  error,
+  resetErrorBoundary,
+}: {
+  error: Error;
+  resetErrorBoundary: () => void;
+}) {
+  return (
+    <View style={styles.membershipCard}>
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Unable to load membership</Text>
+        <Text style={styles.errorSubtitle}>Please try again later</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={resetErrorBoundary}
+        >
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const SkeletonBox = ({
+  width,
+  height,
+  style,
+}: {
+  width: number | string;
+  height: number;
+  style?: any;
+}) => {
+  const animatedValue = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: false,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: false,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [animatedValue]);
+
+  const opacity = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          backgroundColor: COLORS.gray[300],
+          borderRadius: 8,
+          opacity,
+        },
+        style,
+      ]}
+    />
+  );
+};
+
+const MembershipSkeleton = () => {
+  return (
+    <View style={styles.membershipCard}>
+      <View style={styles.membershipSkeletonGradient}>
+        <View style={styles.membershipContent}>
+          <View>
+            <SkeletonBox width={120} height={14} style={{ marginBottom: 8 }} />
+            <SkeletonBox width={100} height={24} style={{ marginBottom: 8 }} />
+            <SkeletonBox width={140} height={14} style={{ marginBottom: 4 }} />
+            <SkeletonBox width={100} height={12} />
+          </View>
+          <View style={styles.membershipPriceContainer}>
+            <SkeletonBox width={60} height={20} style={{ marginBottom: 4 }} />
+            <SkeletonBox width={40} height={12} />
+          </View>
+        </View>
+
+        <View style={styles.membershipButtonContainer}>
+          <SkeletonBox width="66%" height={50} style={{ borderRadius: 0 }} />
+          <SkeletonBox width="34%" height={50} style={{ borderRadius: 0 }} />
+        </View>
+      </View>
+    </View>
+  );
+};
+
+function MembershipSection() {
+  const { data: userMemberships } = useUserMembershipsSuspenseQuery();
+  const cancelMembershipMutation = useCancelMembershipMutation();
+
+  if (!userMemberships || userMemberships.length === 0) {
+    return (
+      <View style={styles.membershipCard}>
+        <View style={styles.noMembershipContainer}>
+          <Text style={styles.noMembershipTitle}>No Active Membership</Text>
+          <Text style={styles.noMembershipSubtitle}>
+            Subscribe to a membership plan to enjoy unlimited car washes
+          </Text>
+          <TouchableOpacity
+            style={styles.subscribeMembershipButton}
+            onPress={() => router.push("/(modals)/membership")}
+          >
+            <Plus size={20} color="#FFF" />
+            <Text style={styles.subscribeMembershipText}>Get Membership</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const handleCancelMembership = useCallback(
+    (userMembershipId: string, membershipName: string) => {
+      Alert.alert(
+        "Cancel Membership",
+        `Are you sure you want to cancel your ${membershipName} membership? This action cannot be undone and you will lose access to all membership benefits.`,
+        [
+          {
+            text: "Keep Membership",
+            style: "cancel",
+          },
+          {
+            text: "Cancel Membership",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await cancelMembershipMutation.mutateAsync(userMembershipId);
+                Alert.alert(
+                  "Membership Cancelled",
+                  "Your membership has been successfully cancelled.",
+                  [{ text: "OK" }]
+                );
+              } catch (error) {
+                Alert.alert(
+                  "Cancellation Failed",
+                  "There was an error cancelling your membership. Please try again or contact support.",
+                  [{ text: "OK" }]
+                );
+              }
+            },
+          },
+        ]
+      );
+    },
+    [cancelMembershipMutation, router, Alert]
+  );
+
+  // Sort memberships: active first, then cancelled, then by expiry date (latest first)
+  const now = new Date();
+  const sortedMemberships = userMemberships.sort((a, b) => {
+    // First priority: isActive status (active first)
+    if (a.isActive !== b.isActive) {
+      return a.isActive ? -1 : 1;
+    }
+
+    // Then sort by expiry date (latest first)
+    return new Date(b.expiresAt).getTime() - new Date(a.expiresAt).getTime();
+  });
+
+  return (
+    <View>
+      {sortedMemberships.map((membership, index) => {
+        const expiryDate = new Date(membership.expiresAt);
+        const isExpired = expiryDate < now;
+        const isActive = membership.isActive;
+        const isCancelled = !isActive && !isExpired;
+
+        // Determine membership status and colors
+        let statusText = isExpired ? "Expired Membership" : "Membership";
+        let gradientColors: [string, string] = isExpired
+          ? [COLORS.gray[600], COLORS.gray[400]]
+          : [COLORS.primary[700], COLORS.primary[500]];
+
+        return (
+          <View key={membership.id} style={styles.membershipCard}>
+            <LinearGradient
+              colors={gradientColors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.membershipGradient}
+            >
+              <View style={styles.membershipContent}>
+                <View>
+                  <Text style={styles.membershipLabel}>
+                    {statusText}
+                    {sortedMemberships.length > 1 &&
+                      ` (${index + 1} of ${sortedMemberships.length})`}
+                  </Text>
+                  <View style={styles.membershipNameContainer}>
+                    <Text style={styles.membershipType}>
+                      {membership.membership.name}
+                    </Text>
+                    {!isActive && !isExpired && (
+                      <View style={styles.cancelledBadge}>
+                        <Text style={styles.cancelledBadgeText}>Cancelled</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.membershipValidity}>
+                    {isExpired
+                      ? `Expired on ${expiryDate.toLocaleDateString()}`
+                      : isCancelled
+                        ? `Cancelled - Valid until ${expiryDate.toLocaleDateString()}`
+                        : `Valid until ${expiryDate.toLocaleDateString()}`}
+                  </Text>
+                  {membership.licensePlate && (
+                    <Text style={styles.membershipLicensePlate}>
+                      Vehicle: {membership.licensePlate}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.membershipPriceContainer}>
+                  <Text style={styles.membershipPrice}>
+                    {membership.membership.price} kr
+                  </Text>
+                  <Text style={styles.membershipPeriod}>
+                    /{membership.membership.period}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.membershipButtonContainer}>
+                <TouchableOpacity
+                  style={[styles.membershipButton, styles.manageButton]}
+                  onPress={() => router.push("/(modals)/membership")}
+                >
+                  <Text style={styles.membershipButtonText}>
+                    {isExpired ? "Renew Membership" : "Manage Membership"}
+                  </Text>
+                </TouchableOpacity>
+
+                {isActive && !isExpired && (
+                  <TouchableOpacity
+                    style={[styles.membershipButton, styles.cancelButton]}
+                    onPress={() =>
+                      handleCancelMembership(
+                        membership.id,
+                        membership.membership.name
+                      )
+                    }
+                    disabled={cancelMembershipMutation.isPending}
+                  >
+                    <X size={16} color="rgba(255, 255, 255, 0.8)" />
+                    <Text style={styles.membershipButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </LinearGradient>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -57,7 +335,11 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Profile</Text>
-        <TouchableOpacity onPress={() => router.push("/settings")}>
+        <TouchableOpacity
+          onPress={() => {
+            /* TODO: Implement settings */
+          }}
+        >
           <Settings size={24} color={COLORS.gray[700]} />
         </TouchableOpacity>
       </View>
@@ -80,49 +362,28 @@ export default function ProfileScreen() {
           </View>
           <TouchableOpacity
             style={styles.editButton}
-            onPress={() => router.push("/edit-profile")}
+            onPress={() => {
+              /* TODO: Implement edit profile */
+            }}
           >
             <Text style={styles.editButtonText}>Edit</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.membershipCard}>
-          <LinearGradient
-            colors={[COLORS.primary[700], COLORS.primary[500]]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.membershipGradient}
-          >
-            <View style={styles.membershipContent}>
-              <View>
-                <Text style={styles.membershipLabel}>Membership</Text>
-                <Text style={styles.membershipType}>Premium</Text>
-                <Text style={styles.membershipValidity}>
-                  Valid until Dec 31, 2023
-                </Text>
-              </View>
-              <Image
-                source={{
-                  uri: "https://images.pexels.com/photos/1144176/pexels-photo-1144176.jpeg",
-                }}
-                style={styles.membershipLogo}
-              />
-            </View>
-            <TouchableOpacity
-              style={styles.membershipButton}
-              onPress={() => router.push("/membership")}
-            >
-              <Text style={styles.membershipButtonText}>View Details</Text>
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
+        <ErrorBoundary FallbackComponent={MembershipErrorFallback}>
+          <Suspense fallback={<MembershipSkeleton />}>
+            <MembershipSection />
+          </Suspense>
+        </ErrorBoundary>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.push("/edit-profile")}
+            onPress={() => {
+              /* TODO: Implement edit profile */
+            }}
           >
             <View style={styles.menuItemLeft}>
               <View
@@ -360,7 +621,7 @@ const styles = StyleSheet.create({
   },
   membershipCard: {
     marginHorizontal: 24,
-    marginVertical: 16,
+    marginVertical: 4,
     borderRadius: 16,
     overflow: "hidden",
   },
@@ -396,16 +657,142 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 12,
   },
+  membershipLicensePlate: {
+    fontFamily: "Inter-Regular",
+    fontSize: 12,
+    color: "#FFF",
+    opacity: 0.9,
+    marginTop: 4,
+  },
+  membershipPriceContainer: {
+    alignItems: "flex-end",
+  },
+  membershipPrice: {
+    fontFamily: "Poppins-Bold",
+    fontSize: 20,
+    color: "#FFF",
+  },
+  membershipPeriod: {
+    fontFamily: "Inter-Regular",
+    fontSize: 12,
+    color: "#FFF",
+    opacity: 0.8,
+  },
   membershipButton: {
     backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingVertical: 12,
+    paddingVertical: 16,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 50,
+    flexDirection: "row",
+    gap: 6,
+  },
+  manageButton: {
+    flex: 2,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "rgba(239, 68, 68, 0.8)", // Red background for destructive action
   },
   membershipButtonText: {
     fontFamily: "Inter-SemiBold",
     fontSize: 14,
     color: "#FFF",
   },
+  noMembershipContainer: {
+    padding: 24,
+    alignItems: "center",
+    backgroundColor: COLORS.gray[50],
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: COLORS.gray[200],
+    borderStyle: "dashed",
+  },
+  noMembershipTitle: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 18,
+    color: COLORS.gray[700],
+    marginBottom: 8,
+  },
+  noMembershipSubtitle: {
+    fontFamily: "Inter-Regular",
+    fontSize: 14,
+    color: COLORS.gray[600],
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  subscribeMembershipButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primary[600],
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  subscribeMembershipText: {
+    fontFamily: "Inter-SemiBold",
+    fontSize: 14,
+    color: "#FFF",
+  },
+  errorContainer: {
+    padding: 24,
+    alignItems: "center",
+    backgroundColor: COLORS.error[50],
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.error[200],
+  },
+  errorTitle: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 16,
+    color: COLORS.error[700],
+    marginBottom: 8,
+  },
+  errorSubtitle: {
+    fontFamily: "Inter-Regular",
+    fontSize: 14,
+    color: COLORS.error[600],
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: COLORS.error[600],
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontFamily: "Inter-SemiBold",
+    fontSize: 14,
+    color: "#FFF",
+  },
+
+  membershipButtonContainer: {
+    flexDirection: "row",
+  },
+  membershipNameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  cancelledBadge: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  cancelledBadgeText: {
+    fontFamily: "Inter-SemiBold",
+    fontSize: 10,
+    color: "#FFF",
+    textTransform: "uppercase",
+  },
+
   section: {
     marginTop: 24,
     paddingHorizontal: 24,
@@ -476,5 +863,10 @@ const styles = StyleSheet.create({
     fontFamily: "Inter-Regular",
     fontSize: 14,
     color: COLORS.gray[500],
+  },
+  membershipSkeletonGradient: {
+    borderRadius: 16,
+    backgroundColor: COLORS.gray[200],
+    padding: 20,
   },
 });

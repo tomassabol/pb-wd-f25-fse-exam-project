@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Image,
   Animated,
+  TextInput,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,9 +21,13 @@ import {
   Star,
   Zap,
   Shield,
+  Car,
 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useMembershipsSuspenseQuery } from "@/hooks/memberships-hooks";
+import {
+  useMembershipsSuspenseQuery,
+  useCreateMembershipMutation,
+} from "@/hooks/memberships-hooks";
 import { MembershipSkeleton } from "@/components/MembershipSkeleton";
 import type { Membership as APIMembership } from "../../../api/db/schema/membership.schema";
 
@@ -77,10 +83,12 @@ const enhanceMembership = (membership: APIMembership): EnhancedMembership => {
 function MembershipContent() {
   const { data: apiMemberships } = useMembershipsSuspenseQuery();
   const memberships = apiMemberships.map(enhanceMembership);
+  const createMembershipMutation = useCreateMembershipMutation();
 
   const [selectedMembership, setSelectedMembership] =
     useState<EnhancedMembership | null>(null);
   const [selectedPayment, setSelectedPayment] = useState("card");
+  const [licensePlate, setLicensePlate] = useState("");
 
   const calculateSavings = (membership: EnhancedMembership) => {
     if (!membership.originalPrice) return 0;
@@ -89,6 +97,40 @@ function MembershipContent() {
         membership.originalPrice) *
         100
     );
+  };
+
+  const handleSubscription = async () => {
+    if (!selectedMembership || !selectedPayment || !licensePlate.trim()) {
+      Alert.alert(
+        "Missing Information",
+        "Please select a membership plan, payment method, and enter your license plate."
+      );
+      return;
+    }
+
+    try {
+      await createMembershipMutation.mutateAsync({
+        membershipId: selectedMembership.id,
+        licensePlate: licensePlate.trim(),
+      });
+
+      Alert.alert(
+        "Success!",
+        `You have successfully subscribed to the ${selectedMembership.name} plan!`,
+        [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert(
+        "Subscription Failed",
+        "There was an error processing your subscription. Please try again.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   return (
@@ -264,6 +306,28 @@ function MembershipContent() {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.licensePlateSection}>
+          <Text style={styles.sectionTitle}>Vehicle Information</Text>
+          <Text style={styles.sectionSubtitle}>
+            Enter your license plate number
+          </Text>
+
+          <View style={styles.licensePlateInputContainer}>
+            <View style={styles.licensePlateIconContainer}>
+              <Car size={24} color={COLORS.gray[600]} />
+            </View>
+            <TextInput
+              style={styles.licensePlateInput}
+              placeholder="Enter license plate"
+              value={licensePlate}
+              onChangeText={setLicensePlate}
+              autoCapitalize="characters"
+              maxLength={10}
+              placeholderTextColor={COLORS.gray[400]}
+            />
+          </View>
+        </View>
+
         <View style={styles.guaranteeSection}>
           <Shield size={24} color={COLORS.success[600]} />
           <View style={styles.guaranteeText}>
@@ -289,13 +353,19 @@ function MembershipContent() {
         <TouchableOpacity
           style={[
             styles.subscribeButton,
-            (!selectedMembership || !selectedPayment) && styles.disabledButton,
+            (!selectedMembership ||
+              !selectedPayment ||
+              !licensePlate.trim() ||
+              createMembershipMutation.isPending) &&
+              styles.disabledButton,
           ]}
-          disabled={!selectedMembership || !selectedPayment}
-          onPress={() => {
-            // Handle subscription
-            router.back();
-          }}
+          disabled={
+            !selectedMembership ||
+            !selectedPayment ||
+            !licensePlate.trim() ||
+            createMembershipMutation.isPending
+          }
+          onPress={handleSubscription}
         >
           <LinearGradient
             colors={
@@ -306,17 +376,25 @@ function MembershipContent() {
             style={styles.subscribeButtonGradient}
           >
             <Text style={styles.subscribeButtonText}>
-              {selectedMembership
-                ? `Subscribe for ${selectedMembership.price} kr/${selectedMembership.period}`
-                : "Select a plan to continue"}
+              {createMembershipMutation.isPending
+                ? "Processing..."
+                : selectedMembership && selectedPayment && licensePlate.trim()
+                  ? `Subscribe for ${selectedMembership.price} kr/${selectedMembership.period}`
+                  : !selectedMembership
+                    ? "Select a plan to continue"
+                    : !selectedPayment
+                      ? "Select a payment method"
+                      : "Enter your license plate"}
             </Text>
-            {selectedMembership && selectedMembership.originalPrice && (
-              <Text style={styles.subscribeButtonSavings}>
-                Save{" "}
-                {selectedMembership.originalPrice - selectedMembership.price}{" "}
-                kr/month
-              </Text>
-            )}
+            {selectedMembership &&
+              selectedMembership.originalPrice &&
+              !createMembershipMutation.isPending && (
+                <Text style={styles.subscribeButtonSavings}>
+                  Save{" "}
+                  {selectedMembership.originalPrice - selectedMembership.price}{" "}
+                  kr/month
+                </Text>
+              )}
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -601,6 +679,35 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: COLORS.primary[600],
+  },
+  licensePlateSection: {
+    padding: 24,
+    paddingTop: 0,
+  },
+  licensePlateInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: COLORS.gray[200],
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  licensePlateIconContainer: {
+    marginRight: 12,
+  },
+  licensePlateInput: {
+    flex: 1,
+    fontFamily: "Inter-Regular",
+    fontSize: 16,
+    color: COLORS.gray[900],
+    paddingVertical: 8,
   },
   guaranteeSection: {
     flexDirection: "row",

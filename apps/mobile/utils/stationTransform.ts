@@ -2,7 +2,7 @@ import { WashingStation } from "../../api/db/schema/washing-station.schema";
 import { Station } from "@/types/station";
 
 export function transformWashingStationToStation(
-  washingStation: WashingStation,
+  washingStation: WashingStation & { isFavorite?: boolean },
   userLocation?: { latitude: number; longitude: number }
 ): Station {
   // Calculate distance if user location is provided
@@ -29,7 +29,7 @@ export function transformWashingStationToStation(
     isOpen,
     hours: washingStation.openHours,
     waitTime: washingStation.averageWaitTime,
-    isFavorite: false, // This would need to come from user preferences
+    isFavorite: washingStation.isFavorite ?? false,
     isPremium: washingStation.isPremium,
     imageUrl:
       washingStation.imageUrl ||
@@ -74,7 +74,7 @@ function isStationOpen(openHours: string): boolean {
 }
 
 export function transformWashingStationsToStations(
-  washingStations: WashingStation[],
+  washingStations: (WashingStation & { isFavorite?: boolean })[],
   userLocation?: { latitude: number; longitude: number }
 ): Station[] {
   return washingStations.map((station) =>

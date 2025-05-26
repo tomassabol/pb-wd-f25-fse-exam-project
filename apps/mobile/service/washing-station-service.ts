@@ -13,7 +13,7 @@ export const WashingStationService = (token: string | null) => ({
     }>
   ) => {
     const { data } = await axios.get<
-      WashingStation & { isFavorite: boolean }[]
+      (WashingStation & { isFavorite: boolean })[]
     >("/v1/washing-stations", getAxiosConfig({ params, token }));
     return data;
   },

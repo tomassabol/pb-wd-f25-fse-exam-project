@@ -1,0 +1,1 @@
+CREATE INDEX "license_plate_index" ON "user_membership" USING btree ("license_plate");

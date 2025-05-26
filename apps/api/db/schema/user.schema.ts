@@ -2,6 +2,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { relations, sql } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 import { userWashingStation } from "./user-washing-station.schema";
+import { userMembership } from "./user-membership.schema";
 
 export const user = pgTable(
   "user",
@@ -30,4 +31,5 @@ export type UserWithoutPassword = Omit<User, "password">;
 
 export const userRelations = relations(user, ({ many }) => ({
   userWashingStations: many(userWashingStation),
+  userMemberships: many(userMembership),
 }));

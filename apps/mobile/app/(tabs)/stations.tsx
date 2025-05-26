@@ -1,4 +1,4 @@
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense, useCallback } from "react";
 import {
   View,
   Text,
@@ -21,9 +21,14 @@ import { COLORS } from "@/constants/colors";
 import { StationCard } from "@/components/stations/StationCard";
 import { StationMap } from "@/components/stations/StationMap";
 import { StationsSkeleton } from "@/components/stations/StationsSkeleton";
-import { useWashingStationsSuspenseQuery } from "@/hooks/washing-stations-hooks";
+import {
+  useAddWashingStationToFavoritesMutation,
+  useRemoveWashingStationFromFavoritesMutation,
+  useWashingStationsSuspenseQuery,
+} from "@/hooks/washing-stations-hooks";
 import { transformWashingStationsToStations } from "@/utils/stationTransform";
 import { useLocation } from "@/contexts/LocationContext";
+import { WashingStation } from "../../../api/db/schema";
 
 const { width } = Dimensions.get("window");
 
@@ -38,6 +43,7 @@ function StationsContent() {
       isOpen?: boolean;
       isPremium?: boolean;
       type?: "manual" | "automatic";
+      favorite?: boolean;
     } = {};
 
     if (selectedFilters.includes("Open Now")) {
@@ -45,6 +51,9 @@ function StationsContent() {
     }
     if (selectedFilters.includes("Premium")) {
       filters.isPremium = true;
+    }
+    if (selectedFilters.includes("Favorites")) {
+      filters.favorite = true;
     }
     if (
       selectedFilters.includes("Manual") &&
@@ -70,11 +79,27 @@ function StationsContent() {
     isLocationLoading,
   } = useLocation();
 
+  const { mutateAsync: addWashingStationToFavorites } =
+    useAddWashingStationToFavoritesMutation();
+
+  const { mutateAsync: removeWashingStationFromFavorites } =
+    useRemoveWashingStationFromFavoritesMutation();
+
+  const handleFavoritePress = useCallback(
+    async (station: WashingStation & { isFavorite: boolean }) => {
+      if (station.isFavorite) {
+        return await removeWashingStationFromFavorites(station.id);
+      }
+      return await addWashingStationToFavorites(station.id);
+    },
+    [addWashingStationToFavorites, removeWashingStationFromFavorites]
+  );
+
   // Transform, filter by search, and sort stations by distance
   const stations = useMemo(() => {
     const transformed = transformWashingStationsToStations(
       washingStations,
-      userLocation
+      userLocation ?? { latitude: 0, longitude: 0 }
     );
 
     // Apply search filter (only local filtering needed since API handles other filters)
@@ -87,14 +112,8 @@ function StationsContent() {
       );
     }
 
-    // Apply favorites filter locally (since API doesn't handle this)
-    if (selectedFilters.includes("Favorites")) {
-      filtered = filtered.filter((station) => station.isFavorite);
-    }
-
-    // Sort by distance (closest first)
     return filtered.sort((a, b) => a.distance - b.distance);
-  }, [washingStations, userLocation, searchQuery, selectedFilters]);
+  }, [washingStations, userLocation, searchQuery]);
 
   const filters = ["Manual", "Automatic", "Open Now", "Favorites", "Premium"];
 
@@ -106,9 +125,12 @@ function StationsContent() {
     );
   };
 
-  const handleStationPress = (stationId: string) => {
-    router.push(`/station/${stationId}`);
-  };
+  const handleStationPress = useCallback(
+    (stationId: string) => {
+      router.push(`/station/${stationId}`);
+    },
+    [router]
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -206,10 +228,11 @@ function StationsContent() {
 
       {viewMode === "list" ? (
         <FlatList
-          data={stations}
+          data={washingStations}
           renderItem={({ item }) => (
             <StationCard
               station={item}
+              onFavoritePress={() => handleFavoritePress(item)}
               onPress={() => handleStationPress(item.id)}
             />
           )}

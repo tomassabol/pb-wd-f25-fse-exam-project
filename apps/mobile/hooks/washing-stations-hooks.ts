@@ -80,7 +80,10 @@ export function useRemoveWashingStationFromFavoritesMutation() {
         queryKey: ["user-favorite-washing-stations", token],
       });
       queryClient.invalidateQueries({
-        queryKey: ["washing-stations", id],
+        queryKey: [id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["washing-stations"],
       });
     },
   });
