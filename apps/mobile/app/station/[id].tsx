@@ -81,10 +81,10 @@ function StationDetailContent() {
   ]);
 
   const handleScanPress = () => {
-    if (user?.licensePlate) {
-      detectLicensePlate(user.licensePlate);
-      router.push("/(modals)/wash-selector");
-    }
+    // Simulate license plate detection - in a real app this would come from camera/scanner
+    const mockLicensePlate = "AB 12 345";
+    detectLicensePlate(mockLicensePlate);
+    router.push("/(modals)/wash-selector");
   };
 
   const handleGetDirections = () => {

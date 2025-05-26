@@ -89,7 +89,8 @@ function HomeScreenContent() {
     // Simulate license plate detection
     setTimeout(() => {
       setIsDetecting(false);
-      detectLicensePlate(user?.licensePlate || "");
+      const mockLicensePlate = "AB 12 345";
+      detectLicensePlate(mockLicensePlate);
       router.push("/(modals)/wash-selector");
     }, 2000);
   };
@@ -137,7 +138,10 @@ function HomeScreenContent() {
                   {activeWash.station.name}
                 </Text>
               </View>
-              <TouchableOpacity style={styles.viewButton}>
+              <TouchableOpacity
+                style={styles.viewButton}
+                onPress={() => router.push("/(modals)/wash-progress")}
+              >
                 <Text style={styles.viewButtonText}>View</Text>
               </TouchableOpacity>
             </View>

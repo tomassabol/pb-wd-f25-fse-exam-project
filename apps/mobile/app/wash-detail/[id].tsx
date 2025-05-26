@@ -20,6 +20,7 @@ import {
   Check,
   Car,
   CreditCard,
+  Droplets,
 } from "lucide-react-native";
 import { useCarWashByIdSuspenseQuery } from "@/hooks/car-wash-hooks";
 import { ErrorBoundary } from "react-error-boundary";
@@ -43,7 +44,7 @@ function WashDetailSkeleton() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header skeleton */}
         <View style={styles.washHeader}>
-          <View style={[styles.washImage, styles.skeletonBox]} />
+          <View style={[styles.washTypeIcon, styles.skeletonBox]} />
           <View style={styles.washTypeContainer}>
             <View
               style={[
@@ -219,10 +220,9 @@ function WashDetailContent() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.washHeader}>
-          <Image
-            source={{ uri: washDetail.washType.imageUrl }}
-            style={styles.washImage}
-          />
+          <View style={styles.washTypeIcon}>
+            <Droplets size={24} color={COLORS.primary[600]} />
+          </View>
           <View style={styles.washTypeContainer}>
             <Text style={styles.washType}>{washDetail.washType.name}</Text>
             <View style={styles.washInfoRow}>
@@ -404,10 +404,13 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: "#FFF",
   },
-  washImage: {
+  washTypeIcon: {
     width: 80,
     height: 80,
-    borderRadius: 12,
+    borderRadius: 40,
+    backgroundColor: COLORS.primary[50],
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 16,
   },
   washTypeContainer: {

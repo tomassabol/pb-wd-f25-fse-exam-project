@@ -1,10 +1,12 @@
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, use, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "@/constants/colors";
 import { useWash } from "@/hooks/useWash";
 import { useAuth } from "@/hooks/useAuth";
+import { useStartWashMutation } from "@/hooks/car-wash-hooks";
+import { useUserMembershipsSuspenseQuery } from "@/hooks/memberships-hooks";
 import { WashType } from "@/types/wash";
 import { ArrowLeft, ChevronRight, CreditCard, User } from "lucide-react-native";
 import Animated, {
@@ -19,6 +21,9 @@ import { WashTypeListSkeleton } from "@/components/skeletons/WashTypeSkeleton";
 export default function WashSelectorScreen() {
   const { user } = useAuth();
   const { licensePlate, startWash } = useWash();
+  const startWashMutation = useStartWashMutation();
+  const { data: userMemberships } = useUserMembershipsSuspenseQuery();
+  const { stationId } = useLocalSearchParams<{ stationId?: string }>();
   const [selectedWashType, setSelectedWashType] = useState<WashType | null>(
     null
   );
@@ -41,33 +46,130 @@ export default function WashSelectorScreen() {
     };
   });
 
-  const handleWashSelection = (washType: WashType) => {
-    console.log("Wash type selected:", washType.name, washType.id);
-    setSelectedWashType(washType);
-
-    // If user doesn't have a subscription, show subscription dialog
-    if (!user?.hasSubscription && washType.price > 120) {
-      setIsSubscriptionDialogVisible(true);
+  // Helper function to check if user has a valid subscription
+  const hasValidSubscription = useCallback(() => {
+    if (!userMemberships || userMemberships.length === 0) {
+      return false;
     }
-  };
 
-  const handleStartWash = () => {
+    const now = new Date();
+    return userMemberships.some(
+      (membership) =>
+        membership.isActive && new Date(membership.expiresAt) > now
+    );
+  }, [userMemberships]);
+
+  // Helper function to determine if a wash type requires membership
+  const requiresMembership = useCallback((washType: WashType) => {
+    // Premium wash types (price > 120) or specific premium wash types
+    const premiumWashTypes = ["premium", "deluxe", "platinum", "gold"];
+    const washTypeName = washType.name.toLowerCase();
+
+    return (
+      washType.price > 120 ||
+      premiumWashTypes.some((premium) => washTypeName.includes(premium))
+    );
+  }, []);
+
+  const handleWashSelection = useCallback(
+    (washType: WashType) => {
+      console.log("Wash type selected:", washType.name, washType.id);
+      setSelectedWashType(washType);
+
+      // Show subscription dialog for premium washes if user doesn't have a valid subscription
+      if (requiresMembership(washType) && !hasValidSubscription()) {
+        setIsSubscriptionDialogVisible(true);
+      } else if (requiresMembership(washType) && hasValidSubscription()) {
+        // Automatically set payment method to membership for premium washes if user has valid subscription
+        setPaymentMethod("membership");
+      } else {
+        // Reset to card payment for basic washes
+        setPaymentMethod("card");
+      }
+    },
+    [requiresMembership, hasValidSubscription]
+  );
+
+  const handleStartWash = useCallback(async () => {
     if (!selectedWashType) {
       Alert.alert("Please select a wash type");
       return;
     }
 
-    startWash(selectedWashType);
-    router.push("/(modals)/wash-progress");
-  };
+    if (!licensePlate) {
+      Alert.alert(
+        "License plate not detected",
+        "Please scan your license plate first"
+      );
+      return;
+    }
 
-  const handleSubscriptionDialogClose = () => {
+    try {
+      // Use the station ID from route params, or fall back to a default
+      const washingStationId = stationId || "ww_cph1";
+
+      // Get the active membership ID if using membership payment
+      let membershipId: string | undefined;
+      if (paymentMethod === "membership") {
+        const activeMembership = userMemberships?.find(
+          (membership) =>
+            membership.isActive && new Date(membership.expiresAt) > new Date()
+        );
+
+        if (!activeMembership) {
+          Alert.alert(
+            "No Active Membership",
+            "You don't have an active membership. Please select a different payment method or subscribe to a membership plan."
+          );
+          return;
+        }
+
+        membershipId = activeMembership.membershipId || undefined;
+      }
+
+      // Start the wash via API
+      await startWashMutation.mutateAsync({
+        licensePlate,
+        washingStationId,
+        washTypeId: selectedWashType.id,
+        paymentMethod: paymentMethod as "membership" | "card" | "mobile_pay",
+        amount: selectedWashType.price,
+        currency: selectedWashType.currency,
+        // Add membershipId if payment method is membership
+        ...(paymentMethod === "membership" &&
+          membershipId && {
+            membershipId,
+          }),
+      });
+
+      // Update the local wash context with the active wash
+      startWash(selectedWashType, washingStationId);
+
+      // Navigate to wash progress on success
+      router.push("/(modals)/wash-progress");
+    } catch (error) {
+      console.error("Failed to start wash:", error);
+      Alert.alert(
+        "Failed to start wash",
+        "Please try again or contact support if the problem persists."
+      );
+    }
+  }, [
+    selectedWashType,
+    licensePlate,
+    stationId,
+    paymentMethod,
+    userMemberships,
+    startWash,
+  ]);
+
+  const handleSubscriptionDialogClose = useCallback(() => {
     setIsSubscriptionDialogVisible(false);
-  };
+  }, []);
 
-  const handleSubscriptionSelect = () => {
+  const handleSubscriptionSelect = useCallback(() => {
     router.push("/membership");
-  };
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -142,15 +244,21 @@ export default function WashSelectorScreen() {
               style={[
                 styles.paymentOption,
                 paymentMethod === "membership" && styles.selectedPaymentOption,
+                !hasValidSubscription() && styles.disabledPaymentOption,
               ]}
-              onPress={() => setPaymentMethod("membership")}
+              onPress={() =>
+                hasValidSubscription() && setPaymentMethod("membership")
+              }
+              disabled={!hasValidSubscription()}
             >
               <User
                 size={24}
                 color={
-                  paymentMethod === "membership"
-                    ? COLORS.primary[600]
-                    : COLORS.gray[600]
+                  !hasValidSubscription()
+                    ? COLORS.gray[400]
+                    : paymentMethod === "membership"
+                      ? COLORS.primary[600]
+                      : COLORS.gray[600]
                 }
               />
               <Text
@@ -158,9 +266,10 @@ export default function WashSelectorScreen() {
                   styles.paymentOptionText,
                   paymentMethod === "membership" &&
                     styles.selectedPaymentOptionText,
+                  !hasValidSubscription() && styles.disabledPaymentOptionText,
                 ]}
               >
-                Membership
+                Membership {!hasValidSubscription() && "(Not Available)"}
               </Text>
               {paymentMethod === "membership" && (
                 <View style={styles.selectedPaymentDot} />
@@ -181,13 +290,18 @@ export default function WashSelectorScreen() {
           <TouchableOpacity
             style={[
               styles.startButton,
-              !selectedWashType && styles.disabledButton,
+              (!selectedWashType || startWashMutation.isPending) &&
+                styles.disabledButton,
             ]}
             onPress={handleStartWash}
-            disabled={!selectedWashType}
+            disabled={!selectedWashType || startWashMutation.isPending}
           >
-            <Text style={styles.startButtonText}>Start Wash</Text>
-            <ChevronRight size={20} color="#FFF" />
+            <Text style={styles.startButtonText}>
+              {startWashMutation.isPending ? "Starting..." : "Start Wash"}
+            </Text>
+            {!startWashMutation.isPending && (
+              <ChevronRight size={20} color="#FFF" />
+            )}
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -195,10 +309,11 @@ export default function WashSelectorScreen() {
       {isSubscriptionDialogVisible && (
         <View style={styles.subscriptionOverlay}>
           <View style={styles.subscriptionDialog}>
-            <Text style={styles.subscriptionTitle}>Save with a Membership</Text>
+            <Text style={styles.subscriptionTitle}>Membership Required</Text>
             <Text style={styles.subscriptionDescription}>
-              You can save up to 30% on every wash with our premium membership.
-              Unlimited washes starting from only 299 kr/month.
+              The {selectedWashType?.name} requires an active membership.
+              Subscribe to enjoy unlimited premium washes and save up to 30% on
+              every wash. Plans starting from only 299 kr/month.
             </Text>
 
             <View style={styles.savingsContainer}>
@@ -367,6 +482,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary[600],
     backgroundColor: COLORS.primary[50],
   },
+  disabledPaymentOption: {
+    opacity: 0.5,
+    backgroundColor: COLORS.gray[100],
+  },
   paymentOptionText: {
     fontFamily: "Inter-Medium",
     fontSize: 14,
@@ -375,6 +494,9 @@ const styles = StyleSheet.create({
   },
   selectedPaymentOptionText: {
     color: COLORS.primary[700],
+  },
+  disabledPaymentOptionText: {
+    color: COLORS.gray[500],
   },
   selectedPaymentDot: {
     position: "absolute",

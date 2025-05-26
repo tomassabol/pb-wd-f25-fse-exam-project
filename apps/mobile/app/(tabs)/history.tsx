@@ -19,6 +19,7 @@ import {
   MapPin,
   Car,
   CreditCard,
+  Droplets,
 } from "lucide-react-native";
 import { ErrorBoundary } from "react-error-boundary";
 import { WashHistory } from "@/types/wash";
@@ -201,10 +202,9 @@ function HistoryContent() {
           >
             <View style={styles.washCardHeader}>
               <View style={styles.washTypeContainer}>
-                <Image
-                  source={{ uri: item.washType.imageUrl }}
-                  style={styles.washTypeImage}
-                />
+                <View style={styles.washTypeIcon}>
+                  <Droplets size={18} color={COLORS.primary[600]} />
+                </View>
                 <View>
                   <Text style={styles.washTypeName}>{item.washType.name}</Text>
                   <View style={styles.washInfoRow}>
@@ -361,10 +361,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  washTypeImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+  washTypeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primary[50],
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   washTypeName: {
