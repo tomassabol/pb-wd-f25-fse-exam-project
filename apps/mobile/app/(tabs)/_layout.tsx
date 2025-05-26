@@ -1,12 +1,17 @@
-import { Tabs } from 'expo-router';
-import { Map, History, User, Home, Heart } from 'lucide-react-native';
-import { COLORS } from '@/constants/colors';
-import { Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { useRouter } from 'expo-router';
+import { Redirect, Tabs } from "expo-router";
+import { Map, History, User, Home, Heart } from "lucide-react-native";
+import { COLORS } from "@/constants/colors";
+import { Platform } from "react-native";
+import { BlurView } from "expo-blur";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function TabLayout() {
-  // const router = useRouter()
+  const { user } = useAuth();
+
+  if (!user) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <Tabs
       screenOptions={{
@@ -14,19 +19,19 @@ export default function TabLayout() {
         tabBarActiveTintColor: COLORS.primary[600],
         tabBarInactiveTintColor: COLORS.gray[500],
         tabBarStyle: {
-          backgroundColor: Platform.OS === 'ios' ? 'transparent' : '#FFF',
+          backgroundColor: Platform.OS === "ios" ? "transparent" : "#FFF",
           borderTopColor: COLORS.gray[200],
           height: 80,
-          paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+          paddingBottom: Platform.OS === "ios" ? 30 : 16,
           paddingTop: 12,
         },
         tabBarBackground: () =>
-          Platform.OS === 'ios' ? (
+          Platform.OS === "ios" ? (
             <BlurView
               tint="light"
               intensity={80}
               style={{
-                position: 'absolute',
+                position: "absolute",
                 top: 0,
                 left: 0,
                 right: 0,
@@ -35,7 +40,7 @@ export default function TabLayout() {
             />
           ) : null,
         tabBarLabelStyle: {
-          fontFamily: 'Inter-Medium',
+          fontFamily: "Inter-Medium",
           fontSize: 12,
         },
       }}
@@ -43,28 +48,28 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: "Home",
           tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="stations"
         options={{
-          title: 'Stations',
+          title: "Stations",
           tabBarIcon: ({ color, size }) => <Map color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="favorites"
         options={{
-          title: 'Favorites',
+          title: "Favorites",
           tabBarIcon: ({ color, size }) => <Heart color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
-          title: 'History',
+          title: "History",
           tabBarIcon: ({ color, size }) => (
             <History color={color} size={size} />
           ),
@@ -73,7 +78,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: "Profile",
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />

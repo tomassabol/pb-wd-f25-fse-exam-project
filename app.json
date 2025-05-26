@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "81fe0ac8-20ce-45e1-b037-cf618ba10993"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.tomassabol.washworld",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

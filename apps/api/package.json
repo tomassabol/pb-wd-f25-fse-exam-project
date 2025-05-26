@@ -9,10 +9,14 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@fastify/auth": "^3.0.2",
     "@fastify/cors": "^8.4.1",
+    "@fastify/jwt": "^8.0.1",
     "@neondatabase/serverless": "^1.0.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "@t3-oss/env-core": "^0.8.0",
+    "@types/bcryptjs": "^3.0.0",
+    "bcryptjs": "^3.0.2",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.43.1",
     "fastify": "^4.26.1",

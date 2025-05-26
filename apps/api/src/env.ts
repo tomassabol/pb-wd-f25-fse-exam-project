@@ -17,6 +17,7 @@ export const env = createEnv({
   server: {
     DATABASE_URL: z.string(),
     API_KEY: z.string(),
+    JWT_SECRET: z.string(),
   },
 
   /**
@@ -25,6 +26,7 @@ export const env = createEnv({
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
     API_KEY: process.env.API_KEY,
+    JWT_SECRET: process.env.JWT_SECRET,
   },
 
   skipValidation:

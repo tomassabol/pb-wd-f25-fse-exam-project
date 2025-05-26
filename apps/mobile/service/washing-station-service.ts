@@ -2,7 +2,7 @@ import axios from "axios";
 import { getAxiosConfig } from "./util/axios-config";
 import { type WashingStation } from "../../api/db/schema/washing-station.schema";
 
-export const WashingStationService = {
+export const WashingStationService = (token: string | null) => ({
   getWashingStations: async (
     params: Partial<{
       isOpen: boolean;
@@ -13,15 +13,15 @@ export const WashingStationService = {
   ) => {
     const { data } = await axios.get<WashingStation[]>(
       "/v1/washing-stations",
-      getAxiosConfig({ params })
+      getAxiosConfig({ params, token })
     );
     return data;
   },
   getWashingStationById: async (id: string) => {
     const { data } = await axios.get<WashingStation>(
       `/v1/washing-stations/${id}`,
-      getAxiosConfig()
+      getAxiosConfig({ token })
     );
     return data;
   },
-} as const;
+});

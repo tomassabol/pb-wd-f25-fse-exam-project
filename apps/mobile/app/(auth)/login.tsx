@@ -1,71 +1,82 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Link, router } from 'expo-router';
-import { useAuth } from '@/hooks/useAuth';
-import { Mail, Lock, ArrowRight } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '@/constants/colors';
+import { useCallback, useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native";
+import { Link, router } from "expo-router";
+import { useAuth } from "@/hooks/useAuth";
+import { Mail, Lock, ArrowRight } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { COLORS } from "@/constants/colors";
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { signIn } = useAuth();
 
-  const handleLogin = async () => {
+  const handleLogin = useCallback(async () => {
     if (!email || !password) {
-      setError('Please fill in all fields');
+      setError("Please fill in all fields");
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      await signIn(email, password);
-      router.replace('/(tabs)');
+      await signIn({ email, password });
+      console.log("login success");
+      router.replace("/(tabs)");
     } catch (err) {
-      setError('Invalid email or password');
+      setError("Invalid email or password");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [email, password, signIn, setError, setIsLoading]);
 
   return (
-    <LinearGradient 
-      colors={[COLORS.primary[800], COLORS.primary[600]]} 
+    <LinearGradient
+      colors={[COLORS.primary[800], COLORS.primary[600]]}
       style={styles.gradient}
     >
       <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoid}
         >
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <View style={styles.logoContainer}>
-              <Image 
-                source={{ uri: 'https://images.pexels.com/photos/6873028/pexels-photo-6873028.jpeg' }} 
-                style={styles.logo}
-              />
               <Text style={styles.logoText}>WashWorld</Text>
             </View>
-            
+
             <View style={styles.formContainer}>
               <Text style={styles.title}>Welcome Back</Text>
               <Text style={styles.subtitle}>Sign in to continue</Text>
-              
+
               {error && (
                 <View style={styles.errorContainer}>
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
-              
+
               <View style={styles.inputGroup}>
                 <View style={styles.inputWrapper}>
-                  <Mail size={20} color={COLORS.gray[500]} style={styles.inputIcon} />
+                  <Mail
+                    size={20}
+                    color={COLORS.gray[500]}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="Email"
@@ -76,9 +87,13 @@ export default function LoginScreen() {
                     onChangeText={setEmail}
                   />
                 </View>
-                
+
                 <View style={styles.inputWrapper}>
-                  <Lock size={20} color={COLORS.gray[500]} style={styles.inputIcon} />
+                  <Lock
+                    size={20}
+                    color={COLORS.gray[500]}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="Password"
@@ -89,22 +104,22 @@ export default function LoginScreen() {
                   />
                 </View>
               </View>
-              
+
               <Link href="/forgot-password" asChild>
                 <TouchableOpacity>
                   <Text style={styles.forgotPassword}>Forgot Password?</Text>
                 </TouchableOpacity>
               </Link>
-              
-              <TouchableOpacity 
-                style={[styles.button, isLoading && styles.buttonDisabled]} 
+
+              <TouchableOpacity
+                style={[styles.button, isLoading && styles.buttonDisabled]}
                 onPress={handleLogin}
                 disabled={isLoading}
               >
                 <Text style={styles.buttonText}>Sign In</Text>
                 <ArrowRight size={20} color="#FFF" />
               </TouchableOpacity>
-              
+
               <View style={styles.signupContainer}>
                 <Text style={styles.signupText}>Don't have an account? </Text>
                 <Link href="/signup" asChild>
@@ -133,42 +148,37 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: 24,
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 40,
   },
-  logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
   logoText: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
     fontSize: 28,
-    color: '#FFF',
+    color: "#FFF",
     marginTop: 12,
   },
   formContainer: {
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderRadius: 16,
     padding: 24,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
   },
   title: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
     fontSize: 24,
     color: COLORS.gray[900],
     marginBottom: 8,
   },
   subtitle: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 16,
     color: COLORS.gray[600],
     marginBottom: 24,
@@ -182,7 +192,7 @@ const styles = StyleSheet.create({
     borderLeftColor: COLORS.error[500],
   },
   errorText: {
-    fontFamily: 'Inter-Medium',
+    fontFamily: "Inter-Medium",
     fontSize: 14,
     color: COLORS.error[700],
   },
@@ -191,8 +201,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: COLORS.gray[100],
     borderRadius: 12,
     borderWidth: 1,
@@ -205,46 +215,46 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 56,
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 16,
     color: COLORS.gray[900],
   },
   forgotPassword: {
-    fontFamily: 'Inter-Medium',
+    fontFamily: "Inter-Medium",
     fontSize: 14,
     color: COLORS.primary[600],
-    textAlign: 'right',
+    textAlign: "right",
     marginBottom: 24,
   },
   button: {
-    flexDirection: 'row',
+    flexDirection: "row",
     height: 56,
     backgroundColor: COLORS.primary[600],
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 24,
   },
   buttonDisabled: {
     backgroundColor: COLORS.gray[400],
   },
   buttonText: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: "Inter-SemiBold",
     fontSize: 16,
-    color: '#FFF',
+    color: "#FFF",
     marginRight: 8,
   },
   signupContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
   },
   signupText: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: "Inter-Regular",
     fontSize: 14,
     color: COLORS.gray[600],
   },
   signupLink: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: "Inter-SemiBold",
     fontSize: 14,
     color: COLORS.primary[600],
   },

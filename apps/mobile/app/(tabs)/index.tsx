@@ -50,6 +50,7 @@ const ActiveWashBar = () => {
 
 function HomeScreenContent() {
   const { user } = useAuth();
+  console.log("user", user);
   const { activeWash, detectLicensePlate } = useWash();
   const { data: washingStations } = useWashingStationsSuspenseQuery({
     isOpen: true,
@@ -101,7 +102,7 @@ function HomeScreenContent() {
           <View style={styles.headerContent}>
             <View>
               <Text style={styles.greeting}>
-                Hello, {user?.name?.split(" ")[0] || "Guest"}
+                Hello, {user?.fullName?.split(" ")[0] || "Guest"}
               </Text>
               <Text style={styles.subGreeting}>Welcome to WashWorld</Text>
             </View>
@@ -188,7 +189,7 @@ function HomeScreenContent() {
           </View>
         )}
 
-        {user?.recentWashes && user.recentWashes.length > 0 && (
+        {/* {user?.recentWashes && user.recentWashes.length > 0 && (
           <View style={[styles.section, styles.lastSection]}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent Washes</Text>
@@ -222,7 +223,7 @@ function HomeScreenContent() {
               </TouchableOpacity>
             ))}
           </View>
-        )}
+        )} */}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
