@@ -2,7 +2,13 @@ import { type FastifyReply, type FastifyRequest } from "fastify";
 import { env } from "../env";
 
 // Public routes that don't require authentication
-const PUBLIC_ROUTES = ["/health", "/v1/auth/login", "/v1/auth/register"];
+const PUBLIC_ROUTES = [
+  "/health",
+  "/v1/auth/login",
+  "/v1/auth/register",
+  "/ws",
+  "/v1/license-plate-scan",
+];
 
 export const authMiddleware = async (
   request: FastifyRequest,

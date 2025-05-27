@@ -4,9 +4,17 @@ import { COLORS } from "@/constants/colors";
 import { Platform } from "react-native";
 import { BlurView } from "expo-blur";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  useWebSocket,
+  useLicensePlateNotifications,
+  useWebSocketPing,
+} from "@/hooks/websocket-hooks";
 
 export default function TabLayout() {
   const { user } = useAuth();
+  useWebSocket();
+  useLicensePlateNotifications();
+  useWebSocketPing();
 
   if (!user) {
     return <Redirect href="/(auth)/login" />;

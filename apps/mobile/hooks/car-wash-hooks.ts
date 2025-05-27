@@ -22,7 +22,7 @@ export function useStartWashMutation() {
     mutationFn: (body: CreateCarWashRequest) =>
       CarWashService(token).startWash(body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["car-wash-history", token] });
+      queryClient.invalidateQueries({ queryKey: ["car-wash-history"] });
     },
   });
 }

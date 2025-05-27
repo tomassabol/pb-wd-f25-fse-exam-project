@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useState,
-  useEffect,
-  ReactNode,
-  useCallback,
-} from "react";
+import { createContext, useState, useCallback } from "react";
 import { Station } from "@/types/station";
 import { WashType } from "@/types/wash";
 import { mockStations } from "@/data/mockStations";
@@ -26,7 +20,7 @@ export interface WashStep {
   status: "pending" | "active" | "completed";
 }
 
-interface ActiveWash {
+type ActiveWash = {
   id: string;
   station: Station;
   washType: WashType;
@@ -38,31 +32,31 @@ interface ActiveWash {
   progress: number; // 0-100
   timeRemaining: number; // in seconds
   totalDuration: number; // in seconds
-}
+};
 
-interface WashContextType {
+type WashContextType = {
   activeWash: ActiveWash | null;
   licensePlate: string | null;
+  selectedStationId: string | null;
   detectLicensePlate: (licensePlate: string) => void;
+  setSelectedStation: (stationId: string) => void;
   startWash: (washType: WashType, stationId?: string) => void;
   completeWash: () => void;
   cancelWash: () => void;
   updateWashProgress: () => void;
-}
+};
 
 export const WashContext = createContext<WashContextType>({
   activeWash: null,
   licensePlate: null,
+  selectedStationId: null,
   detectLicensePlate: () => {},
+  setSelectedStation: () => {},
   startWash: () => {},
   completeWash: () => {},
   cancelWash: () => {},
   updateWashProgress: () => {},
 });
-
-interface WashProviderProps {
-  children: ReactNode;
-}
 
 // Define wash steps based on wash type
 const getWashSteps = (washType: WashType): WashStep[] => {
@@ -137,12 +131,19 @@ const getWashSteps = (washType: WashType): WashStep[] => {
   return baseSteps;
 };
 
-export function WashProvider({ children }: WashProviderProps) {
+export function WashProvider({ children }: { children: React.ReactNode }) {
   const [activeWash, setActiveWash] = useState<ActiveWash | null>(null);
   const [licensePlate, setLicensePlate] = useState<string | null>(null);
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(
+    null
+  );
 
   const detectLicensePlate = useCallback((plate: string) => {
     setLicensePlate(plate);
+  }, []);
+
+  const setSelectedStation = useCallback((stationId: string) => {
+    setSelectedStationId(stationId);
   }, []);
 
   const startWash = useCallback((washType: WashType, stationId?: string) => {
@@ -276,7 +277,9 @@ export function WashProvider({ children }: WashProviderProps) {
       value={{
         activeWash,
         licensePlate,
+        selectedStationId,
         detectLicensePlate,
+        setSelectedStation,
         startWash,
         completeWash,
         cancelWash,

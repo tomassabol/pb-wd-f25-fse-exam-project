@@ -20,10 +20,13 @@ import { WashTypeListSkeleton } from "@/components/skeletons/WashTypeSkeleton";
 
 export default function WashSelectorScreen() {
   const { user } = useAuth();
-  const { licensePlate, startWash } = useWash();
+  const { licensePlate, selectedStationId, startWash } = useWash();
   const startWashMutation = useStartWashMutation();
   const { data: userMemberships } = useUserMembershipsSuspenseQuery();
   const { stationId } = useLocalSearchParams<{ stationId?: string }>();
+
+  // Use station ID from context if available, otherwise fall back to route params
+  const effectiveStationId = selectedStationId || stationId;
   const [selectedWashType, setSelectedWashType] = useState<WashType | null>(
     null
   );
@@ -105,8 +108,8 @@ export default function WashSelectorScreen() {
     }
 
     try {
-      // Use the station ID from route params, or fall back to a default
-      const washingStationId = stationId || "ww_cph1";
+      // Use the effective station ID (from context or route params), or fall back to a default
+      const washingStationId = effectiveStationId || "ww_cph1";
 
       // Get the active membership ID if using membership payment
       let membershipId: string | undefined;
@@ -157,7 +160,7 @@ export default function WashSelectorScreen() {
   }, [
     selectedWashType,
     licensePlate,
-    stationId,
+    effectiveStationId,
     paymentMethod,
     userMemberships,
     startWash,
