@@ -19,7 +19,7 @@ export const carWash = pgTable(
       .notNull(),
     userId: text("user_id").references(() => user.id),
     paymentMethod: text("payment_method", {
-      enum: ["subscription", "card", "mobile_pay"],
+      enum: ["membership", "card", "mobile_pay"],
     }).notNull(),
     amount: bigint("amount", { mode: "number" }).notNull(),
     currency: text("currency").notNull(),

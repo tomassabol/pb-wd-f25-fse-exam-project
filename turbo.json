@@ -4,9 +4,31 @@
   "pipeline": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**", "*.tsbuildinfo"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "db/**/*.ts",
+        "*.ts",
+        "tsconfig.json",
+        "package.json"
+      ]
     },
-    "lint": {},
+    "type-check": {
+      "dependsOn": ["^type-check"],
+      "outputs": ["*.tsbuildinfo"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "db/**/*.ts",
+        "*.ts",
+        "tsconfig.json"
+      ]
+    },
+    "lint": {
+      "dependsOn": ["type-check"],
+      "outputs": []
+    },
     "dev": {
       "cache": false,
       "persistent": true

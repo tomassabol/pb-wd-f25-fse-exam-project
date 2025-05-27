@@ -51,7 +51,6 @@ const ActiveWashBar = () => {
 
 function HomeScreenContent() {
   const { user } = useAuth();
-  console.log("user", user);
   const { activeWash, detectLicensePlate } = useWash();
   const { data: washingStations } = useWashingStationsSuspenseQuery({
     isOpen: true,

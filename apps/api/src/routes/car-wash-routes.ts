@@ -84,12 +84,12 @@ export async function carWashRoutes(fastify: FastifyInstance) {
       const [washRecord] = await db
         .insert(carWash)
         .values({
-          licensePlate: licensePlate,
-          washingStationId,
-          washTypeId,
-          paymentMethod,
+          licensePlate,
           amount,
           currency,
+          paymentMethod,
+          washingStationId,
+          washTypeId,
           membershipId,
           userId: request.user.id,
         })
